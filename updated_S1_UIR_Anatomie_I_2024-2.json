@@ -1,0 +1,107 @@
+{
+  "metadata": {
+    "unique_id": "S1_UIR_Anatomie_I_2024",
+    "school": "UIR",
+    "school_type": "Private",
+    "exam_year": 2024,
+    "subject_year": "First Year",
+    "semester": "S1",
+    "topic": "Anatomie I"
+  },
+  "content": {
+    "questions": [
+      {
+        "question": "1\u00b0 Les atomes 26Fe (A= 56) et 26Mn (A=56)\nA- \u00c9l\u00e9ment chimique identique\nB- Isotopes\nC- Appartiennent \u00e0 la m\u00eame p\u00e9riode\nD- Font partie du m\u00eame groupe",
+        "options": {
+          "A": "\u00c9l\u00e9ment chimique identique",
+          "B": "Isotopes",
+          "C": "Appartiennent \u00e0 la m\u00eame p\u00e9riode",
+          "D": "Font partie du m\u00eame groupe",
+          "correct_answers": [
+            "B",
+            "C"
+          ]
+        },
+        "isQuestionSet": false,
+        "hasImage": false
+      },
+      {
+        "question": "2\u00b0 Dans le complexe m\u00e9tallique diamagn\u00e9tique Zxa (NHa)4- (a=z'n), indiquer la (les) proposition(s) exacte(s) :\nA- Le nombre d'oxydation de z est +II\nB- La g\u00e9om\u00e9trie du complexe est quadratique plane\nC- La configuration de l'esp\u00e8ce m\u00e9tallique est (Ar)3d4\nD- Le ligand est riche en \u00e9lectrons",
+        "options": {
+          "A": "Le nombre d'oxydation de z est +II",
+          "B": "La g\u00e9om\u00e9trie du complexe est quadratique plane",
+          "C": "La configuration de l'esp\u00e8ce m\u00e9tallique est (Ar)3d4",
+          "D": "Le ligand est riche en \u00e9lectrons"
+        },
+        "isQuestionSet": false,
+        "hasImage": false
+      },
+      {
+        "question": "3\u00b0 L\u2019isom\u00e9risation du but-2-\u00e8ne en pr\u00e9sence d\u2019un acide fort HSO4 \u00e0 chaud conduit \u00e0 :\nA- Le butane-1\nB- 2-M\u00e9thylpropan-2-oI\nC- CH2=C=CH-CH2CH3\nD- CH3-CH2-CH2-CH=CH2",
+        "options": {
+          "A": "Le butane-1",
+          "B": "2-M\u00e9thylpropan-2-oI",
+          "C": "CH2=C=CH-CH2CH3",
+          "D": "CH3-CH2-CH2-CH=CH2"
+        },
+        "isQuestionSet": false,
+        "hasImage": false
+      },
+      {
+        "question": "4\u00b0 Lors de l\u2019oxydation du D-glucose au moyen de la D-Mannose, lesquelles sont exactes\nA- La D-Mannose se trouve inchang\u00e9e\nB- La D-Glucose a \u00e9t\u00e9 d\u00e9grad\u00e9e\nC- Le sch\u00e9ma inchang\u00e9\nD- Inversion de l\u2019acide",
+        "options": {
+          "A": "La D-Mannose se trouve inchang\u00e9e",
+          "B": "La D-Glucose a \u00e9t\u00e9 d\u00e9grad\u00e9e",
+          "C": "Le sch\u00e9ma inchang\u00e9",
+          "D": "Inversion de l\u2019acide"
+        },
+        "isQuestionSet": false,
+        "hasImage": false
+      },
+      {
+        "question": "5\u00b0 Soient les deux mol\u00e9cules suivantes :\n\nA- I et II sont des isom\u00e8res optiques\nB- II est isom\u00e9riquement plus stable\nC- Elles sont toutes deux des esters\nD- II est sauf les projections en Newman",
+        "options": {
+          "A": "I et II sont des isom\u00e8res optiques",
+          "B": "II est isom\u00e9riquement plus stable",
+          "C": "Elles sont toutes deux des esters",
+          "D": "II est sauf les projections en Newman"
+        },
+        "isQuestionSet": false,
+        "hasImage": true
+      },
+      {
+        "question": "6\u00b0 En nomenclature syst\u00e9matique le compos\u00e9 CH2=CH-C(CH3)=CH-CH=CH-COOH\nA- Acide S-chloro-3-m\u00e9thylhex-1,3-di\u00e9no\u00efque\nB- Acide 2-chloro-4-m\u00e9thylhex-3,5-di\u00e9no\u00efque\nC- Acide 2-chlorohex-3,5-di\u00e9noate de m\u00e9thyle\nD- Acide 2-chloro-4-m\u00e9thylpent-3,5-di\u00e9no\u00efque",
+        "options": {
+          "A": "Acide S-chloro-3-m\u00e9thylhex-1,3-di\u00e9no\u00efque",
+          "B": "Acide 2-chloro-4-m\u00e9thylhex-3,5-di\u00e9no\u00efque",
+          "C": "Acide 2-chlorohex-3,5-di\u00e9noate de m\u00e9thyle",
+          "D": "Acide 2-chloro-4-m\u00e9thylpent-3,5-di\u00e9no\u00efque"
+        },
+        "isQuestionSet": false,
+        "hasImage": false
+      },
+      {
+        "question": "7\u00b0 Parmi les affirmations suivantes, cocher celles qui sont justes :\n\nA- I et II sont des formulations exactes du glucose\nB- II est mutarotatoire\nC- Les deux mol\u00e9cules ont les m\u00eames formules\nD- Elles repr\u00e9sentent des projections de Fischer",
+        "options": {
+          "A": "I et II sont des formulations exactes du glucose",
+          "B": "II est mutarotatoire",
+          "C": "Les deux mol\u00e9cules ont les m\u00eames formules",
+          "D": "Elles repr\u00e9sentent des projections de Fischer"
+        },
+        "isQuestionSet": false,
+        "hasImage": true
+      },
+      {
+        "question": "8\u00b0 Parmi ces aldoses et c\u00e9toses naturels, lesquelles sont optiquement actives\nA- Elles sont toutes les quatre actives\nB- Seuls deux sont actifs\nC- Sont inactives seulement\nD- Le B et le C ne sont pas actifs",
+        "options": {
+          "A": "Elles sont toutes les quatre actives",
+          "B": "Seuls deux sont actifs",
+          "C": "Sont inactives seulement",
+          "D": "Le B et le C ne sont pas actifs"
+        },
+        "isQuestionSet": false,
+        "hasImage": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,79 @@
+{
+  "First Year": {
+    "S1": [
+      "Anatomie I",
+      "Biologie Genetique",
+      "Biochimie",
+      "Communication et Langue",
+      "Santé Publique",
+      "Methodologie D'apprentissage"
+    ],
+    "S2": [
+      "Anatomie II",
+      "Biophysique",
+      "Histologie / Embryologie",
+      "Histoire de la Medecine / Psychosoc",
+      "Technique de communication"
+    ]
+  },
+  "Second Year": {
+    "S3": [
+      "Anatomie III",
+      "Histologie / Embryologie II",
+      "Medecine Experimentale",
+      "Microbiologie",
+      "Physiologie I",
+      "Semiologie I"
+    ],
+    "S4": [
+      "Anatomie IV",
+      "Biochimie Clinique",
+      "Hematologie Fondamentale",
+      "Physiologie II",
+      "Semiologie II"
+    ]
+  },
+  "Third Year": {
+    "S5": [
+      "Anatomie Pathologique",
+      "Maladies Infectieuses",
+      "Pharmacologie",
+      "Radiologie et Imageries"
+    ],
+    "S6": [
+      "Pathologie Cardio-vasculaire",
+      "Pathologie Gastro-Viscerale",
+      "Pathologie Respiratoire"
+    ]
+  },
+  "Fourth Year": {
+    "S7": [
+      "Anatomie Pathologique",
+      "Dermatologie / Endocrinologie",
+      "Hematologie / Oncologie",
+      "Système Nerveux",
+      "Pharmacologie"
+    ],
+    "S8": [
+      "Maladies de L'enfant",
+      "Appareil Locomoteur",
+      "Immunologie - Genetique - Maladies Inflammatoire",
+      "Pharmacologie"
+    ]
+  },
+  "Fifth Year": {
+    "S9": [
+      "Santé Publique II",
+      "Synthèse Therapeutique",
+      "Urgence / Réanimation",
+      "Psychiatrie"
+    ],
+    "S10": [
+      "Médecine Légale",
+      "Gynécologie / Obstétrique",
+      "ORL",
+      "Ophtalmologie",
+      "Urologie / Néphrologie"
+    ]
+  }
+}
