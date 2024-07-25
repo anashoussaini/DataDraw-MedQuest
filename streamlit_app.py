@@ -16,9 +16,9 @@ import re
 
 
 cloudinary.config( 
-    cloud_name = "dhtkvhxve", 
-    api_key = "854863171176322", 
-    api_secret = "mDw3-VK4_UBxB9DYnO8wSYforPY",
+    cloud_name = st.secrets["cloudinary"]["cloud_name"],
+    api_key = st.secrets["cloudinary"]["api_key"],
+    api_secret = st.secrets["cloudinary"]["api_secret"],
     secure=True
 )
 
@@ -61,7 +61,7 @@ def generate_unique_id(school, subject_year, semester, topic, exam_year):
     return f"{semester_code}_{school}_{topic}_{exam_year}".replace(" ", "_")
 
 def process_images_with_gpt4(image_paths, assistant_id="asst_4yuIfwKLI5Z0DAWvDQWfHt2S"):
-    client = OpenAI(api_key="sk-svcacct-cwuwDcMzzuq39gcqKbrkT3BlbkFJWZfkOU3WFC12knVHWhZI")
+    client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
     thread = client.beta.threads.create()
 
@@ -111,8 +111,7 @@ def get_json_download_link(json_data, filename):
 
 def get_chatgpt_response(input_text, assistant_id="asst_iQb7V5JznUaKNt3tqKkgWBKa"):
     # Initialize the OpenAI client
-    client = OpenAI(api_key="sk-svcacct-cwuwDcMzzuq39gcqKbrkT3BlbkFJWZfkOU3WFC12knVHWhZI")
-
+    client = OpenAI(api_key=st.secrets["openai"]["api_key"])
     # Create a new thread
     thread = client.beta.threads.create()
 
