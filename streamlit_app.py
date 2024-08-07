@@ -49,7 +49,7 @@ def pdf_to_jpg(pdf_path, output_folder):
     return image_paths
 
 
-def generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_type):
+def generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_variable):
     semester_map = {
         "First Year": {"S1": "S1", "S2": "S2"},
         "Second Year": {"S3": "S3", "S4": "S4"},
@@ -58,7 +58,7 @@ def generate_unique_id(school, subject_year, semester, topic, exam_year, exam_mo
         "Fifth Year": {"S9": "S9", "S10": "S10"}
     }
     semester_code = semester_map[subject_year][semester]
-    return f"{semester_code}_{school}_{topic}_{exam_year}_{exam_month}_{exam_type}".replace(" ", "_")
+    return f"{semester_code}_{school}_{topic}_{exam_year}_{exam_month}_{exam_variable}".replace(" ", "_")
 
 def process_images_with_gpt4(image_paths, assistant_id="asst_4yuIfwKLI5Z0DAWvDQWfHt2S"):
     client = OpenAI(api_key=st.secrets["openai"]["api_key"])
@@ -152,7 +152,6 @@ def get_chatgpt_response(input_text, assistant_id="asst_iQb7V5JznUaKNt3tqKkgWBKa
     return "No response from the assistant."
 
 
-
 def show_digitalization_page():
     st.header("Digitalization")
 
@@ -175,9 +174,10 @@ def show_digitalization_page():
         semester = st.selectbox("Semester", options=list(curriculum_data[subject_year].keys()))
         topics = curriculum_data[subject_year][semester]
         topic = st.selectbox("Topic", options=topics)
-        exam_type = st.selectbox("Exam Type", options=["Midterm", "Final", "Quiz", "Other"])
+        exam_variable = st.number_input("Exam Variable", min_value=1, max_value=10, value=1, step=1, 
+                                        help="Enter a number to represent the exam (e.g., 1 for first exam, 2 for second exam, etc.)")
 
-    unique_id = generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_type)
+    unique_id = generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_variable)
     st.write(f"Unique Exam ID: {unique_id}")
 
     if uploaded_file is not None and st.button("Process Scanned PDF"):
@@ -200,7 +200,7 @@ def show_digitalization_page():
                 "school_type": school_type,
                 "exam_year": exam_year,
                 "exam_month": exam_month,
-                "exam_type": exam_type,
+                "exam_variable": exam_variable,
                 "subject_year": subject_year,
                 "semester": semester,
                 "topic": topic
