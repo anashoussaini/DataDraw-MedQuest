@@ -271,102 +271,113 @@ def upload_image_to_cloudinary_2(image):
         response = cloudinary.uploader.upload(buffer)
         return response['secure_url']
     return None
-
 def show_answer_filling_page():
     if 'data' not in st.session_state:
         uploaded_file = st.file_uploader("Upload JSON file", type="json")
         if uploaded_file is not None:
-            data = json.load(uploaded_file)
-            # Add isAnswered flag to each question if not present
-            for question in data['content']['questions']:
-                if 'isAnswered' not in question:
-                    question['isAnswered'] = bool(question['options'].get('correct_answers', []))
-            st.session_state.data = data
-            st.session_state.original_filename = uploaded_file.name
-            st.experimental_rerun()
+            try:
+                data = json.load(uploaded_file)
+                # Add isAnswered flag to each question if not present
+                for question in data['content']['questions']:
+                    if 'isAnswered' not in question:
+                        question['isAnswered'] = bool(question['options'].get('correct_answers', []))
+                st.session_state.data = data
+                st.session_state.original_filename = uploaded_file.name
+                st.session_state.current_question = 0  # Initialize current question
+                st.experimental_rerun()
+            except Exception as e:
+                st.error(f"Error loading JSON file: {str(e)}")
     
     if 'data' in st.session_state:
-        data = st.session_state.data
-        questions = data['content']['questions']
+        try:
+            data = st.session_state.data
+            questions = data['content']['questions']
 
-        # Sidebar for question navigation
-        with st.sidebar:
-            st.write("Questions:")
-            for i, q in enumerate(questions):
-                question_text = q['question'].split('\n')[0][:30] + "..."  # Truncate for display
-                if st.button(f"Q{i+1}{' ✓' if q['isAnswered'] else ''}", key=f"nav_{i}"):
-                    st.session_state.current_question = i
+            # Sidebar for question navigation
+            with st.sidebar:
+                st.write("Questions:")
+                for i, q in enumerate(questions):
+                    question_text = q['question'].split('\n')[0][:30] + "..."  # Truncate for display
+                    if st.button(f"Q{i+1}{' ✓' if q['isAnswered'] else ''}", key=f"nav_{i}"):
+                        st.session_state.current_question = i
+                        st.experimental_rerun()
+
+            current_question = st.session_state.get('current_question', 0)
+
+            # Main content area
+            st.progress((current_question + 1) / len(questions))
+            st.write(f"Question {current_question + 1} of {len(questions)}")
+
+            # Question display and editing
+            question_text = questions[current_question]['question'].split('\n')[0]
+            st.markdown(f"### Question:")
+            new_question_text = st.text_area("", question_text, key=f"q{current_question}_text", height=100)
+            
+            full_question = questions[current_question]['question']
+            options_text = '\n'.join(full_question.split('\n')[1:])
+            questions[current_question]['question'] = f"{new_question_text}\n{options_text}"
+
+            # Image handling
+            uploaded_image = st.file_uploader("Upload an image for this question", type=["png", "jpg", "jpeg"], key=f"q{current_question}_image")
+            if uploaded_image:
+                image = Image.open(uploaded_image)
+                max_width = 300
+                width_percent = (max_width / float(image.size[0]))
+                height_size = int((float(image.size[1]) * float(width_percent)))
+                image = image.resize((max_width, height_size), Image.LANCZOS)
+                st.image(image, caption="Uploaded Image", use_column_width=False)
+                image_url = upload_image_to_cloudinary_2(Image.open(uploaded_image))
+                questions[current_question]['image_url'] = image_url
+            elif 'image_url' in questions[current_question]:
+                st.image(questions[current_question]['image_url'], caption="Question Image", width=300)
+
+            # Options handling
+            st.write("Options:")
+            options = questions[current_question]['options']
+            selected_options = []
+            for option, text in options.items():
+                if option != 'correct_answers':
+                    new_text = st.text_input(f"Option {option}", text, key=f"q{current_question}_opt_{option}")
+                    options[option] = new_text
+                    if st.checkbox(f"Correct: {option}", 
+                                   value=option in options.get('correct_answers', []),
+                                   key=f"q{current_question}_check_{option}"):
+                        selected_options.append(option)
+
+            # Update correct answers and flags
+            questions[current_question]['options']['correct_answers'] = selected_options
+            questions[current_question]['isAnswered'] = bool(selected_options)
+
+            # Navigation and download buttons
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if current_question > 0 and st.button("Previous"):
+                    st.session_state.current_question = current_question - 1
                     st.experimental_rerun()
+            with col3:
+                if current_question < len(questions) - 1 and st.button("Next"):
+                    st.session_state.current_question = current_question + 1
+                    st.experimental_rerun()
+            with col2:
+                if st.button("Download Document"):
+                    json_str = json.dumps(data, indent=2)
+                    b64 = base64.b64encode(json_str.encode()).decode()
+                    original_name = st.session_state.original_filename
+                    new_name = f"corrected_{original_name}"
+                    href = f'<a href="data:application/json;base64,{b64}" download="{new_name}">Download JSON</a>'
+                    st.markdown(href, unsafe_allow_html=True)
 
-        current_question = st.session_state.get('current_question', 0)
+            # Metadata display
+            st.write("---")
+            st.write("Metadata:")
+            display_metadata(data['metadata'])
 
-        # Main content area
-        st.progress((current_question + 1) / len(questions))
-        st.write(f"Question {current_question + 1} of {len(questions)}")
+            # Update session state
+            st.session_state.data = data
 
-        # Question display and editing
-        question_text = questions[current_question]['question'].split('\n')[0]
-        st.markdown(f"### Question:")
-        new_question_text = st.text_area("", question_text, key=f"q{current_question}_text", height=100)
-        
-        full_question = questions[current_question]['question']
-        options_text = '\n'.join(full_question.split('\n')[1:])
-        questions[current_question]['question'] = f"{new_question_text}\n{options_text}"
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
 
-        # Image handling (as in previous version)
-        uploaded_image = st.file_uploader("Upload an image for this question", type=["png", "jpg", "jpeg"], key=f"q{current_question}_image")
-        if uploaded_image:
-            image = Image.open(uploaded_image)
-            max_width = 300
-            width_percent = (max_width / float(image.size[0]))
-            height_size = int((float(image.size[1]) * float(width_percent)))
-            image = image.resize((max_width, height_size), Image.LANCZOS)
-            st.image(image, caption="Uploaded Image", use_column_width=False)
-            image_url = upload_image_to_cloudinary_2(Image.open(uploaded_image))
-            questions[current_question]['image_url'] = image_url
-        elif 'image_url' in questions[current_question]:
-            st.image(questions[current_question]['image_url'], caption="Question Image", width=300)
-
-        # Options handling
-        st.write("Options:")
-        options = questions[current_question]['options']
-        selected_options = []
-        for option, text in options.items():
-            if option != 'correct_answers':
-                new_text = st.text_input(f"Option {option}", text, key=f"q{current_question}_opt_{option}")
-                options[option] = new_text
-                if st.checkbox(f"Correct: {option}", 
-                               value=option in options.get('correct_answers', []),
-                               key=f"q{current_question}_check_{option}"):
-                    selected_options.append(option)
-
-        # Update correct answers and flags
-        questions[current_question]['options']['correct_answers'] = selected_options
-        questions[current_question]['isAnswered'] = bool(selected_options)
-
-        # Navigation and download buttons
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if current_question > 0 and st.button("Previous"):
-                st.session_state.current_question = current_question - 1
-                st.experimental_rerun()
-        with col3:
-            if current_question < len(questions) - 1 and st.button("Next"):
-                st.session_state.current_question = current_question + 1
-                st.experimental_rerun()
-        with col2:
-            if st.button("Download Document"):
-                json_str = json.dumps(data, indent=2)
-                b64 = base64.b64encode(json_str.encode()).decode()
-                original_name = st.session_state.original_filename
-                new_name = f"corrected_{original_name}"
-                href = f'<a href="data:application/json;base64,{b64}" download="{new_name}">Download JSON</a>'
-                st.markdown(href, unsafe_allow_html=True)
-
-        # Metadata display
-        st.write("---")
-        st.write("Metadata:")
-        display_metadata(data['metadata'])
 
 
 def display_metadata(metadata):
@@ -406,86 +417,97 @@ def show_correction_linking_page():
     if 'data' not in st.session_state:
         uploaded_file = st.file_uploader("Upload JSON file", type="json")
         if uploaded_file is not None:
-            data = json.load(uploaded_file)
-            st.session_state.data = data
-            st.session_state.original_filename = uploaded_file.name
-            st.experimental_rerun()
+            try:
+                data = json.load(uploaded_file)
+                st.session_state.data = data
+                st.session_state.original_filename = uploaded_file.name
+                st.session_state.current_question = 0  # Initialize current question
+                st.experimental_rerun()
+            except Exception as e:
+                st.error(f"Error loading JSON file: {str(e)}")
     
     if 'data' in st.session_state:
-        data = st.session_state.data
-        questions = data['content']['questions']
+        try:
+            data = st.session_state.data
+            questions = data['content']['questions']
 
-        # Sidebar for question navigation
-        with st.sidebar:
-            st.write("Questions:")
-            for i, q in enumerate(questions):
-                question_text = q['question'].split('\n')[0][:30] + "..."  # Truncate for display
-                if st.button(f"Q{i+1}{' ✓' if 'explanation' in q else ''}", key=f"nav_{i}"):
-                    st.session_state.current_question = i
+            # Sidebar for question navigation
+            with st.sidebar:
+                st.write("Questions:")
+                for i, q in enumerate(questions):
+                    question_text = q['question'].split('\n')[0][:30] + "..."  # Truncate for display
+                    if st.button(f"Q{i+1}{' ✓' if 'explanation' in q else ''}", key=f"nav_{i}"):
+                        st.session_state.current_question = i
+                        st.experimental_rerun()
+
+            current_question = st.session_state.get('current_question', 0)
+
+            # Main content area
+            st.progress((current_question + 1) / len(questions))
+            st.write(f"Question {current_question + 1} of {len(questions)}")
+
+            # Display the question
+            st.markdown(f"### Question:")
+            st.write(questions[current_question]['question'])
+
+            # Display current explanation if it exists
+            if 'explanation' in questions[current_question]:
+                st.markdown("### Current Explanation:")
+                if 'text' in questions[current_question]['explanation']:
+                    st.write(questions[current_question]['explanation']['text'])
+                if 'image_url' in questions[current_question]['explanation']:
+                    st.image(questions[current_question]['explanation']['image_url'], caption="Explanation Image", width=300)
+
+            # Add or edit explanation
+            st.markdown("### Add/Edit Explanation:")
+            explanation_text = st.text_area("Explanation Text", 
+                                            value=questions[current_question].get('explanation', {}).get('text', ''),
+                                            height=150)
+
+            uploaded_image = st.file_uploader("Upload an explanation image", type=["png", "jpg", "jpeg"], key=f"q{current_question}_exp_image")
+            if uploaded_image:
+                image = Image.open(uploaded_image)
+                st.image(image, caption="Uploaded Explanation Image", width=300)
+                image_url = upload_image_to_cloudinary_3(image)
+            else:
+                image_url = questions[current_question].get('explanation', {}).get('image_url', None)
+
+            if st.button("Save Explanation"):
+                questions[current_question]['explanation'] = {
+                    'text': explanation_text,
+                    'image_url': image_url
+                }
+                st.success("Explanation saved successfully!")
+
+            # Navigation buttons
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if current_question > 0 and st.button("Previous"):
+                    st.session_state.current_question = current_question - 1
                     st.experimental_rerun()
+            with col3:
+                if current_question < len(questions) - 1 and st.button("Next"):
+                    st.session_state.current_question = current_question + 1
+                    st.experimental_rerun()
+            with col2:
+                if st.button("Download Updated Document"):
+                    json_str = json.dumps(data, indent=2)
+                    b64 = base64.b64encode(json_str.encode()).decode()
+                    original_name = st.session_state.original_filename
+                    new_name = f"corrected_with_explanations_{original_name}"
+                    href = f'<a href="data:application/json;base64,{b64}" download="{new_name}">Download JSON</a>'
+                    st.markdown(href, unsafe_allow_html=True)
 
-        current_question = st.session_state.get('current_question', 0)
+            # Display metadata
+            st.write("---")
+            st.write("Metadata:")
+            display_metadata(data['metadata'])
 
-        # Main content area
-        st.progress((current_question + 1) / len(questions))
-        st.write(f"Question {current_question + 1} of {len(questions)}")
+            # Update session state
+            st.session_state.data = data
 
-        # Display the question
-        st.markdown(f"### Question:")
-        st.write(questions[current_question]['question'])
-
-        # Display current explanation if it exists
-        if 'explanation' in questions[current_question]:
-            st.markdown("### Current Explanation:")
-            if 'text' in questions[current_question]['explanation']:
-                st.write(questions[current_question]['explanation']['text'])
-            if 'image_url' in questions[current_question]['explanation']:
-                st.image(questions[current_question]['explanation']['image_url'], caption="Explanation Image", width=300)
-
-        # Add or edit explanation
-        st.markdown("### Add/Edit Explanation:")
-        explanation_text = st.text_area("Explanation Text", 
-                                        value=questions[current_question].get('explanation', {}).get('text', ''),
-                                        height=150)
-
-        uploaded_image = st.file_uploader("Upload an explanation image", type=["png", "jpg", "jpeg"], key=f"q{current_question}_exp_image")
-        if uploaded_image:
-            image = Image.open(uploaded_image)
-            st.image(image, caption="Uploaded Explanation Image", width=300)
-            image_url = upload_image_to_cloudinary_3(image)
-        else:
-            image_url = questions[current_question].get('explanation', {}).get('image_url', None)
-
-        if st.button("Save Explanation"):
-            questions[current_question]['explanation'] = {
-                'text': explanation_text,
-                'image_url': image_url
-            }
-            st.success("Explanation saved successfully!")
-
-        # Navigation buttons
-        col1, col2, col3 = st.columns(3)
-        with col1:
-            if current_question > 0 and st.button("Previous"):
-                st.session_state.current_question = current_question - 1
-                st.experimental_rerun()
-        with col3:
-            if current_question < len(questions) - 1 and st.button("Next"):
-                st.session_state.current_question = current_question + 1
-                st.experimental_rerun()
-        with col2:
-            if st.button("Download Updated Document"):
-                json_str = json.dumps(data, indent=2)
-                b64 = base64.b64encode(json_str.encode()).decode()
-                original_name = st.session_state.original_filename
-                new_name = f"corrected_with_explanations_{original_name}"
-                href = f'<a href="data:application/json;base64,{b64}" download="{new_name}">Download JSON</a>'
-                st.markdown(href, unsafe_allow_html=True)
-
-        # Display metadata
-        st.write("---")
-        st.write("Metadata:")
-        display_metadata(data['metadata'])
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
 
 def main():
     st.set_page_config(page_title="MEDQUEST Admin Tool", layout="wide")
