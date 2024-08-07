@@ -284,7 +284,7 @@ def show_answer_filling_page():
                 st.session_state.data = data
                 st.session_state.original_filename = uploaded_file.name
                 st.session_state.current_question = 0  # Initialize current question
-                st.experimental_rerun()
+                st.rerun()
             except Exception as e:
                 st.error(f"Error loading JSON file: {str(e)}")
     
@@ -300,7 +300,7 @@ def show_answer_filling_page():
                     question_text = q['question'].split('\n')[0][:30] + "..."  # Truncate for display
                     if st.button(f"Q{i+1}{' ✓' if q['isAnswered'] else ''}", key=f"nav_{i}"):
                         st.session_state.current_question = i
-                        st.experimental_rerun()
+                        st.rerun()
 
             current_question = st.session_state.get('current_question', 0)
 
@@ -353,11 +353,11 @@ def show_answer_filling_page():
             with col1:
                 if current_question > 0 and st.button("Previous"):
                     st.session_state.current_question = current_question - 1
-                    st.experimental_rerun()
+                    st.rerun()
             with col3:
                 if current_question < len(questions) - 1 and st.button("Next"):
                     st.session_state.current_question = current_question + 1
-                    st.experimental_rerun()
+                    st.rerun()
             with col2:
                 if st.button("Download Document"):
                     json_str = json.dumps(data, indent=2)
@@ -422,7 +422,7 @@ def show_correction_linking_page():
                 st.session_state.data = data
                 st.session_state.original_filename = uploaded_file.name
                 st.session_state.current_question = 0  # Initialize current question
-                st.experimental_rerun()
+                st.rerun()
             except Exception as e:
                 st.error(f"Error loading JSON file: {str(e)}")
     
@@ -438,7 +438,7 @@ def show_correction_linking_page():
                     question_text = q['question'].split('\n')[0][:30] + "..."  # Truncate for display
                     if st.button(f"Q{i+1}{' ✓' if 'explanation' in q else ''}", key=f"nav_{i}"):
                         st.session_state.current_question = i
-                        st.experimental_rerun()
+                        st.rerun()
 
             current_question = st.session_state.get('current_question', 0)
 
@@ -484,11 +484,11 @@ def show_correction_linking_page():
             with col1:
                 if current_question > 0 and st.button("Previous"):
                     st.session_state.current_question = current_question - 1
-                    st.experimental_rerun()
+                    st.rerun()
             with col3:
                 if current_question < len(questions) - 1 and st.button("Next"):
                     st.session_state.current_question = current_question + 1
-                    st.experimental_rerun()
+                    st.rerun()
             with col2:
                 if st.button("Download Updated Document"):
                     json_str = json.dumps(data, indent=2)
