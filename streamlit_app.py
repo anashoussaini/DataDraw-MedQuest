@@ -60,43 +60,6 @@ def generate_unique_id(school, subject_year, semester, topic, exam_year, exam_mo
     semester_code = semester_map[subject_year][semester]
     return f"{semester_code}_{school}_{topic}_{exam_year}_{exam_month}_{exam_variable}".replace(" ", "_")
 
-def process_images_with_gpt4(image_paths, assistant_id="asst_4yuIfwKLI5Z0DAWvDQWfHt2S"):
-    client = OpenAI(api_key=st.secrets["openai"]["api_key"])
-
-    thread = client.beta.threads.create()
-
-    for i, image_path in enumerate(image_paths):
-        image_url = upload_image_to_cloudinary(image_path)
-        
-        client.beta.threads.messages.create(
-            thread_id=thread.id,
-            role="user",
-            content=[
-                {"type": "text", "text": f"Process page {i+1} of the exam"},
-                {"type": "image_url", "image_url": {"url": image_url}}
-            ]
-        )
-
-    run = client.beta.threads.runs.create(
-        thread_id=thread.id,
-        assistant_id=assistant_id
-    )
-
-    while run.status == "queued" or run.status == "in_progress":
-        run = client.beta.threads.runs.retrieve(
-            thread_id=thread.id,
-            run_id=run.id,
-        )
-        time.sleep(0.5)
-
-    messages = client.beta.threads.messages.list(thread_id=thread.id)
-
-    for message in reversed(messages.data):
-        if message.role == "assistant":
-            return message.content[0].text.value
-
-    return "No response from the assistant."
-
 
 def extract_questions_from_text(text):
     # Simple regex-based question extraction
@@ -109,53 +72,8 @@ def get_json_download_link(json_data, filename):
     b64 = base64.b64encode(json_str.encode()).decode()
     return f'<a href="data:application/json;base64,{b64}" download="{filename}">Download JSON</a>'
 
-def get_chatgpt_response(input_text, assistant_id="asst_iQb7V5JznUaKNt3tqKkgWBKa"):
-    # Initialize the OpenAI client
-    client = OpenAI(api_key=st.secrets["openai"]["api_key"])
-    # Create a new thread
-    thread = client.beta.threads.create()
-
-    # Add a message to the thread
-    client.beta.threads.messages.create(
-        thread_id=thread.id,
-        role="user",
-        content=[{"type": "text", "text": json.dumps(input_text)}]
-    )
-
-    # Create a run
-    run = client.beta.threads.runs.create(
-        thread_id=thread.id,
-        assistant_id=assistant_id
-    )
-
-    # Wait for the run to complete
-    def wait_on_run(run, thread):
-        while run.status == "queued" or run.status == "in_progress":
-            run = client.beta.threads.runs.retrieve(
-                thread_id=thread.id,
-                run_id=run.id
-            )
-            time.sleep(0.5)
-        return run
-
-    run = wait_on_run(run, thread)
-
-    # Retrieve the messages
-    messages = client.beta.threads.messages.list(thread_id=thread.id)
-
-    # Get the latest assistant message
-    for message in messages.data:
-        if message.role == "assistant":
-            return json.loads(message.content[0].text.value)
-
-    # If no assistant message is found
-    return "No response from the assistant."
-
-
 def show_digitalization_page():
     st.header("Digitalization")
-
-    uploaded_file = st.file_uploader("Upload Scanned PDF", type="pdf")
 
     col1, col2 = st.columns(2)
     
@@ -180,20 +98,12 @@ def show_digitalization_page():
     unique_id = generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_variable)
     st.write(f"Unique Exam ID: {unique_id}")
 
-    if uploaded_file is not None and st.button("Process Scanned PDF"):
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
-            tmp_file.write(uploaded_file.getvalue())
-            tmp_file_path = tmp_file.name
-
-        with tempfile.TemporaryDirectory() as tmp_dir:
-            with st.spinner("Converting PDF to images..."):
-                image_paths = pdf_to_jpg(tmp_file_path, tmp_dir)
-
-            st.write(f"Created {len(image_paths)} images from the scanned PDF")
-
-            if image_paths:
-                st.image(image_paths[0], caption="First page of the scanned PDF", use_column_width=True)
-
+    uploaded_file = st.file_uploader("Upload JSON file", type="json")
+    
+    if uploaded_file is not None and st.button("Process JSON"):
+        try:
+            content = json.load(uploaded_file)
+            
             metadata = {
                 "unique_id": unique_id,
                 "school": school,
@@ -205,23 +115,21 @@ def show_digitalization_page():
                 "semester": semester,
                 "topic": topic
             }
+            
+            full_response = {
+                "metadata": metadata,
+                "content": content
+            }
+            
+            st.json(full_response)
+            
+            st.markdown(get_json_download_link(full_response, f"{unique_id}.json"), unsafe_allow_html=True)
+        
+        except json.JSONDecodeError:
+            st.error("Invalid JSON file. Please upload a valid JSON file.")
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
 
-            with st.spinner("Processing images with GPT-4..."):
-                gpt4_response = process_images_with_gpt4(image_paths)
-
-            with st.spinner("Cleaning JSON with GPT-4..."):
-                full_response = {"metadata": metadata, "content": gpt4_response}
-                full_response_final = get_chatgpt_response(full_response)
-                st.json(full_response_final)
-
-            st.markdown(get_json_download_link(full_response_final, f"{unique_id}.json"), unsafe_allow_html=True)
-
-        os.unlink(tmp_file_path)
-
-    if 'image_paths' in locals() and image_paths:
-        if st.checkbox("Show all pages"):
-            for i, img_path in enumerate(image_paths):
-                st.image(img_path, caption=f"Page {i+1}", use_column_width=True)
 
 def show_answer_filling_page():
     st.header("Answer Filling and Verification")
