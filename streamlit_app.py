@@ -104,6 +104,10 @@ def show_digitalization_page():
         try:
             content = json.load(uploaded_file)
             
+            # Check if the content has the expected structure
+            if not isinstance(content, dict) or "questions" not in content:
+                raise ValueError("The JSON file does not have the expected structure. It should contain a 'questions' key at the top level.")
+            
             metadata = {
                 "unique_id": unique_id,
                 "school": school,
@@ -127,8 +131,10 @@ def show_digitalization_page():
         
         except json.JSONDecodeError:
             st.error("Invalid JSON file. Please upload a valid JSON file.")
+        except ValueError as ve:
+            st.error(f"Error in JSON structure: {str(ve)}")
         except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
+            st.error(f"An unexpected error occurred: {str(e)}")
 
 
 def show_answer_filling_page():
