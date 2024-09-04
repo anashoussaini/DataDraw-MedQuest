@@ -430,10 +430,131 @@ def show_correction_linking_page():
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
 
+def upload_image_to_cloudinary(image):
+    if image is not None:
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        buffer.seek(0)
+        response = cloudinary.uploader.upload(buffer)
+        return response['secure_url']
+    return None
+
+def show_create_exam_page():
+    st.header("Create Exam")
+
+    # Initialize session state for exam data if not exists
+    if 'exam_data' not in st.session_state:
+        st.session_state.exam_data = {
+            "metadata": {},
+            "content": {"questions": []}
+        }
+    
+    # Metadata input
+    st.subheader("Exam Metadata")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.session_state.exam_data["metadata"]["school"] = st.text_input("School", st.session_state.exam_data["metadata"].get("school", ""))
+        st.session_state.exam_data["metadata"]["school_type"] = st.selectbox("School Type", ["Private", "Public"], index=0 if st.session_state.exam_data["metadata"].get("school_type") == "Private" else 1)
+        st.session_state.exam_data["metadata"]["exam_year"] = st.number_input("Year of Exam", min_value=2000, max_value=2100, value=st.session_state.exam_data["metadata"].get("exam_year", 2024))
+    with col2:
+        st.session_state.exam_data["metadata"]["subject_year"] = st.text_input("Year of Subject", st.session_state.exam_data["metadata"].get("subject_year", ""))
+        st.session_state.exam_data["metadata"]["semester"] = st.text_input("Semester", st.session_state.exam_data["metadata"].get("semester", ""))
+        st.session_state.exam_data["metadata"]["topic"] = st.text_input("Topic", st.session_state.exam_data["metadata"].get("topic", ""))
+
+    # Question input
+    st.subheader("Questions")
+    questions = st.session_state.exam_data["content"]["questions"]
+
+    # Toggle between normal and JSON input
+    input_method = st.radio("Input Method", ["Normal", "JSON"])
+
+    if input_method == "Normal":
+        # Sidebar for question navigation
+        with st.sidebar:
+            st.write("Questions:")
+            for i, _ in enumerate(questions):
+                if st.button(f"Q{i+1}", key=f"nav_{i}"):
+                    st.session_state.current_question = i
+                    st.rerun()
+            if st.button("+ New Question"):
+                questions.append({"question": "", "options": {}, "isAnswered": False})
+                st.session_state.current_question = len(questions) - 1
+                st.rerun()
+
+        # Display current question or prompt to add a new one
+        if not questions:
+            st.write("No questions yet. Click '+ New Question' in the sidebar to start.")
+        else:
+            current_question = st.session_state.get('current_question', 0)
+            st.write(f"Question {current_question + 1} of {len(questions)}")
+
+            # Question text
+            questions[current_question]['question'] = st.text_area("Question Text", questions[current_question]['question'], height=100)
+
+            # Image upload for question
+            uploaded_image = st.file_uploader("Upload an image for this question", type=["png", "jpg", "jpeg"], key=f"q{current_question}_image")
+            if uploaded_image:
+                image = Image.open(uploaded_image)
+                st.image(image, caption="Uploaded Image", use_column_width=False, width=300)
+                image_url = upload_image_to_cloudinary(image)
+                questions[current_question]['image_url'] = image_url
+            elif 'image_url' in questions[current_question]:
+                st.image(questions[current_question]['image_url'], caption="Question Image", width=300)
+
+            # Options
+            st.write("Options:")
+            options = questions[current_question]['options']
+            for option in ['A', 'B', 'C', 'D']:
+                options[option] = st.text_input(f"Option {option}", options.get(option, ""), key=f"q{current_question}_opt_{option}")
+
+            # Correct answer
+            correct_options = st.multiselect("Correct Answer(s)", ['A', 'B', 'C', 'D'], 
+                                             default=options.get('correct_answers', []))
+            options['correct_answers'] = correct_options
+
+            # Update isAnswered flag
+            questions[current_question]['isAnswered'] = bool(correct_options)
+
+            # Navigation buttons
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                if current_question > 0 and st.button("Previous"):
+                    st.session_state.current_question = current_question - 1
+                    st.rerun()
+            with col3:
+                if current_question < len(questions) - 1 and st.button("Next"):
+                    st.session_state.current_question = current_question + 1
+                    st.rerun()
+
+    else:  # JSON input method
+        json_input = st.text_area("Paste JSON for questions here", height=300)
+        if st.button("Parse JSON"):
+            try:
+                new_questions = json.loads(json_input)
+                if isinstance(new_questions, list):
+                    for q in new_questions:
+                        if 'question' in q and 'options' in q:
+                            questions.append(q)
+                    st.success(f"Successfully added {len(new_questions)} questions.")
+                else:
+                    st.error("Invalid JSON format. Please provide a list of question objects.")
+            except json.JSONDecodeError:
+                st.error("Invalid JSON. Please check your input.")
+
+    # Generate and download JSON
+    if st.button("Generate Exam JSON"):
+        json_str = json.dumps(st.session_state.exam_data, indent=2)
+        b64 = base64.b64encode(json_str.encode()).decode()
+        exam_name = st.session_state.exam_data["metadata"].get("topic", "exam").replace(" ", "_")
+        file_name = f"{exam_name}_exam.json"
+        href = f'<a href="data:application/json;base64,{b64}" download="{file_name}">Download Exam JSON</a>'
+        st.markdown(href, unsafe_allow_html=True)
+
+# Update the main function to include the new page
 def main():
     st.set_page_config(page_title="MEDQUEST Admin Tool", layout="wide")
 
-    page = st.sidebar.selectbox("Select a page", ["Digitalization", "Answer Filling", "Correction Linking"])
+    page = st.sidebar.selectbox("Select a page", ["Digitalization", "Answer Filling", "Correction Linking", "Create Exam"])
 
     if page == "Digitalization":
         show_digitalization_page()
@@ -441,8 +562,9 @@ def main():
         show_answer_filling_page()
     elif page == "Correction Linking":
         show_correction_linking_page()
+    elif page == "Create Exam":
+        show_create_exam_page()
 
 if __name__ == "__main__":
     main()
-
 
