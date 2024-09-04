@@ -556,13 +556,13 @@ def main():
 
     page = st.sidebar.selectbox("Select a page", ["Digitalization", "Answer Filling", "Correction Linking", "Create Exam"])
 
-    if page == "Digitalization":
-        show_digitalization_page()
-    elif page == "Answer Filling":
-        show_answer_filling_page()
-    elif page == "Correction Linking":
-        show_correction_linking_page()
-    elif page == "Create Exam":
+    # if page == "Digitalization":
+    #     show_digitalization_page()
+    # elif page == "Answer Filling":
+    #     show_answer_filling_page()
+    # elif page == "Correction Linking":
+    #     show_correction_linking_page()
+    if page == "Create Exam":
         show_create_exam_page()
 
 if __name__ == "__main__":
