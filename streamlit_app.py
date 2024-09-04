@@ -554,7 +554,8 @@ def show_create_exam_page():
 def main():
     st.set_page_config(page_title="MEDQUEST Admin Tool", layout="wide")
 
-    page = st.sidebar.selectbox("Select a page", ["Digitalization", "Answer Filling", "Correction Linking", "Create Exam"])
+    # page = st.sidebar.selectbox("Select a page", ["Digitalization", "Answer Filling", "Correction Linking", "Create Exam"])
+    page = st.sidebar.selectbox("Select a page", ["Create Exam"])
 
     # if page == "Digitalization":
     #     show_digitalization_page()
