@@ -452,14 +452,40 @@ def show_create_exam_page():
     # Metadata input
     st.subheader("Exam Metadata")
     col1, col2 = st.columns(2)
+    
     with col1:
-        st.session_state.exam_data["metadata"]["school"] = st.text_input("School", st.session_state.exam_data["metadata"].get("school", ""))
-        st.session_state.exam_data["metadata"]["school_type"] = st.selectbox("School Type", ["Private", "Public"], index=0 if st.session_state.exam_data["metadata"].get("school_type") == "Private" else 1)
-        st.session_state.exam_data["metadata"]["exam_year"] = st.number_input("Year of Exam", min_value=2000, max_value=2100, value=st.session_state.exam_data["metadata"].get("exam_year", 2024))
+        school = st.selectbox("School", options=schools_data["private"] + schools_data["public"])
+        school_type = "Private" if school in schools_data["private"] else "Public"
+        st.write(f"School Type: {school_type}")
+        exam_year = st.number_input("Year of Exam", min_value=2000, max_value=2100, value=2024)
+        exam_month = st.selectbox("Month of Exam", options=[
+            "January", "February", "March", "April", "May", "June", 
+            "July", "August", "September", "October", "November", "December"
+        ])
+
     with col2:
-        st.session_state.exam_data["metadata"]["subject_year"] = st.text_input("Year of Subject", st.session_state.exam_data["metadata"].get("subject_year", ""))
-        st.session_state.exam_data["metadata"]["semester"] = st.text_input("Semester", st.session_state.exam_data["metadata"].get("semester", ""))
-        st.session_state.exam_data["metadata"]["topic"] = st.text_input("Topic", st.session_state.exam_data["metadata"].get("topic", ""))
+        subject_year = st.selectbox("Year of Subject", options=list(curriculum_data.keys()))
+        semester = st.selectbox("Semester", options=list(curriculum_data[subject_year].keys()))
+        topics = curriculum_data[subject_year][semester]
+        topic = st.selectbox("Topic", options=topics)
+        exam_variable = st.number_input("Exam Variable", min_value=1, max_value=10, value=1, step=1, 
+                                        help="Enter a number to represent the exam (e.g., 1 for first exam, 2 for second exam, etc.)")
+
+    unique_id = generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_variable)
+    st.write(f"Unique Exam ID: {unique_id}")
+
+    # Update metadata in session state
+    st.session_state.exam_data["metadata"] = {
+        "unique_id": unique_id,
+        "school": school,
+        "school_type": school_type,
+        "exam_year": exam_year,
+        "exam_month": exam_month,
+        "exam_variable": exam_variable,
+        "subject_year": subject_year,
+        "semester": semester,
+        "topic": topic
+    }
 
     # Question input
     st.subheader("Questions")
@@ -545,8 +571,7 @@ def show_create_exam_page():
     if st.button("Generate Exam JSON"):
         json_str = json.dumps(st.session_state.exam_data, indent=2)
         b64 = base64.b64encode(json_str.encode()).decode()
-        exam_name = st.session_state.exam_data["metadata"].get("topic", "exam").replace(" ", "_")
-        file_name = f"{exam_name}_exam.json"
+        file_name = f"{unique_id}.json"
         href = f'<a href="data:application/json;base64,{b64}" download="{file_name}">Download Exam JSON</a>'
         st.markdown(href, unsafe_allow_html=True)
 
