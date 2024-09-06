@@ -85,6 +85,14 @@ def display_metadata(metadata):
         st.write(f"Topic: {metadata['topic']}")
 
 
+def upload_image_to_cloudinary(image):
+    if image is not None:
+        buffer = io.BytesIO()
+        image.save(buffer, format="PNG")
+        buffer.seek(0)
+        response = cloudinary.uploader.upload(buffer)
+        return response['secure_url']
+    return None
 
 def generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_variable):
     semester_map = {
@@ -98,18 +106,27 @@ def generate_unique_id(school, subject_year, semester, topic, exam_year, exam_mo
     exam_year_str = exam_year if exam_year != "Unknown" else "UNK"
     exam_month_str = exam_month if exam_month != "Unknown" else "UNK"
     return f"{semester_code}_{school}_{topic}_{exam_year_str}_{exam_month_str}_{exam_variable}".replace(" ", "_")
-def generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_variable):
-    semester_map = {
-        "First Year": {"S1": "S1", "S2": "S2"},
-        "Second Year": {"S3": "S3", "S4": "S4"},
-        "Third Year": {"S5": "S5", "S6": "S6"},
-        "Fourth Year": {"S7": "S7", "S8": "S8"},
-        "Fifth Year": {"S9": "S9", "S10": "S10"}
-    }
-    semester_code = semester_map.get(subject_year, {}).get(semester, "UNK")
-    exam_year_str = exam_year if exam_year != "Unknown" else "UNK"
-    exam_month_str = exam_month if exam_month != "Unknown" else "UNK"
-    return f"{semester_code}_{school}_{topic}_{exam_year_str}_{exam_month_str}_{exam_variable}".replace(" ", "_")
+
+def show_metadata_form():
+    col1, col2 = st.columns(2)
+    
+    with col1:
+        school = st.selectbox("School", options=["Unknown"] + schools_data["private"] + schools_data["public"])
+        school_type = "Private" if school in schools_data["private"] else "Public" if school in schools_data["public"] else "Unknown"
+        st.write(f"School Type: {school_type}")
+        exam_year = st.selectbox("Year of Exam", options=["Unknown"] + list(range(2000, 2101)))
+        exam_month = st.selectbox("Month of Exam", options=["Unknown", "January", "February", "March", "April", "May", "June", 
+            "July", "August", "September", "October", "November", "December"])
+
+    with col2:
+        subject_year = st.selectbox("Year of Subject", options=list(curriculum_data.keys()))
+        semester = st.selectbox("Semester", options=list(curriculum_data[subject_year].keys()))
+        topics = curriculum_data[subject_year][semester]
+        topic = st.selectbox("Topic", options=topics)
+        exam_variable = st.number_input("Exam Variable", min_value=1, max_value=10, value=1, step=1, 
+                                        help="Enter a number to represent the exam (e.g., 1 for first exam, 2 for second exam, etc.)")
+
+    return school, school_type, exam_year, exam_month, subject_year, semester, topic, exam_variable
 
 def show_create_exam_page():
     st.header("Create Exam")
@@ -121,26 +138,10 @@ def show_create_exam_page():
             "content": {"questions": []}
         }
     
-    # Metadata input (only shown on first page)
-    if 'metadata_submitted' not in st.session_state:
+    # Metadata input and editing
+    if 'metadata_submitted' not in st.session_state or st.button("Edit Metadata"):
         st.subheader("Exam Metadata")
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            school = st.selectbox("School", options=["Unknown"] + schools_data["private"] + schools_data["public"])
-            school_type = "Private" if school in schools_data["private"] else "Public" if school in schools_data["public"] else "Unknown"
-            st.write(f"School Type: {school_type}")
-            exam_year = st.selectbox("Year of Exam", options=["Unknown"] + list(range(2000, 2101)))
-            exam_month = st.selectbox("Month of Exam", options=["Unknown", "January", "February", "March", "April", "May", "June", 
-                "July", "August", "September", "October", "November", "December"])
-
-        with col2:
-            subject_year = st.selectbox("Year of Subject", options=["Unknown"] + list(curriculum_data.keys()))
-            semester = st.selectbox("Semester", options=["Unknown"] + (list(curriculum_data[subject_year].keys()) if subject_year != "Unknown" else []))
-            topics = ["Unknown"] + (curriculum_data[subject_year][semester] if subject_year != "Unknown" and semester != "Unknown" else [])
-            topic = st.selectbox("Topic", options=topics)
-            exam_variable = st.number_input("Exam Variable", min_value=1, max_value=10, value=1, step=1, 
-                                            help="Enter a number to represent the exam (e.g., 1 for first exam, 2 for second exam, etc.)")
+        school, school_type, exam_year, exam_month, subject_year, semester, topic, exam_variable = show_metadata_form()
 
         if st.button("Submit Metadata"):
             unique_id = generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_variable)
@@ -169,10 +170,6 @@ def show_create_exam_page():
         input_method = st.radio("Input Method", ["Normal", "JSON"])
 
         if input_method == "Normal":
-            # Add new question button
-            if st.button("+ Add New Question"):
-                questions.append({"question": "", "options": {}, "isAnswered": False})
-
             # Display all questions on the same page
             for i, question in enumerate(questions):
                 st.write(f"Question {i + 1}")
@@ -212,6 +209,11 @@ def show_create_exam_page():
 
                 st.write("---")  # Separator between questions
 
+            # Add new question button at the bottom
+            if st.button("+ Add New Question"):
+                questions.append({"question": "", "options": {}, "isAnswered": False})
+                st.rerun()
+
         else:  # JSON input method
             json_input = st.text_area("Paste JSON for questions here", height=300)
             if st.button("Parse JSON"):
@@ -234,6 +236,8 @@ def show_create_exam_page():
             file_name = f"{st.session_state.exam_data['metadata']['unique_id']}.json"
             href = f'<a href="data:application/json;base64,{b64}" download="{file_name}">Download Exam JSON</a>'
             st.markdown(href, unsafe_allow_html=True)
+
+
 
 
 
