@@ -34,20 +34,6 @@ with open('curriculum_structure.json', 'r') as f:
 with open('schools.json', 'r') as f:
     schools_data = json.load(f)
 
-def pdf_to_jpg(pdf_path, output_folder):
-    os.makedirs(output_folder, exist_ok=True)
-    image_paths = []
-    pdf_document = fitz.open(pdf_path)
-    for page_num in range(len(pdf_document)):
-        page = pdf_document.load_page(page_num)
-        pix = page.get_pixmap(matrix=fitz.Matrix(300/72, 300/72))  # 300 DPI
-        img = Image.frombytes("RGB", [pix.width, pix.height], pix.samples)
-        file_name = f"page_{page_num + 1}.jpg"
-        file_path = os.path.join(output_folder, file_name)
-        img.save(file_path, "JPEG", quality=95)
-        image_paths.append(file_path)
-    pdf_document.close()
-    return image_paths
 
 
 def generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_variable):
@@ -73,123 +59,6 @@ def get_json_download_link(json_data, filename):
     b64 = base64.b64encode(json_str.encode()).decode()
     return f'<a href="data:application/json;base64,{b64}" download="{filename}">Download JSON</a>'
 
-
-############################
-#CORRECTION 
-############################
-
-import streamlit as st
-import json
-import base64
-import cloudinary
-import cloudinary.uploader
-from PIL import Image
-import io
-
-def upload_image_to_cloudinary_3(image):
-    if image is not None:
-        buffer = io.BytesIO()
-        image.save(buffer, format="PNG")
-        buffer.seek(0)
-        response = cloudinary.uploader.upload(buffer)
-        return response['secure_url']
-    return None
-
-def show_correction_linking_page():
-    if 'data' not in st.session_state:
-        uploaded_file = st.file_uploader("Upload JSON file", type="json")
-        if uploaded_file is not None:
-            try:
-                data = json.load(uploaded_file)
-                st.session_state.data = data
-                st.session_state.original_filename = uploaded_file.name
-                st.session_state.current_question = 0  # Initialize current question
-                st.rerun()
-            except Exception as e:
-                st.error(f"Error loading JSON file: {str(e)}")
-    
-    if 'data' in st.session_state:
-        try:
-            data = st.session_state.data
-            questions = data['content']['questions']
-
-            # Sidebar for question navigation
-            with st.sidebar:
-                st.write("Questions:")
-                for i, q in enumerate(questions):
-                    question_text = q['question'].split('\n')[0][:30] + "..."  # Truncate for display
-                    if st.button(f"Q{i+1}{' ✓' if 'explanation' in q else ''}", key=f"nav_{i}"):
-                        st.session_state.current_question = i
-                        st.rerun()
-
-            current_question = st.session_state.get('current_question', 0)
-
-            # Main content area
-            st.progress((current_question + 1) / len(questions))
-            st.write(f"Question {current_question + 1} of {len(questions)}")
-
-            # Display the question
-            st.markdown(f"### Question:")
-            st.write(questions[current_question]['question'])
-
-            # Display current explanation if it exists
-            if 'explanation' in questions[current_question]:
-                st.markdown("### Current Explanation:")
-                if 'text' in questions[current_question]['explanation']:
-                    st.write(questions[current_question]['explanation']['text'])
-                if 'image_url' in questions[current_question]['explanation']:
-                    st.image(questions[current_question]['explanation']['image_url'], caption="Explanation Image", width=300)
-
-            # Add or edit explanation
-            st.markdown("### Add/Edit Explanation:")
-            explanation_text = st.text_area("Explanation Text", 
-                                            value=questions[current_question].get('explanation', {}).get('text', ''),
-                                            height=150)
-
-            uploaded_image = st.file_uploader("Upload an explanation image", type=["png", "jpg", "jpeg"], key=f"q{current_question}_exp_image")
-            if uploaded_image:
-                image = Image.open(uploaded_image)
-                st.image(image, caption="Uploaded Explanation Image", width=300)
-                image_url = upload_image_to_cloudinary_3(image)
-            else:
-                image_url = questions[current_question].get('explanation', {}).get('image_url', None)
-
-            if st.button("Save Explanation"):
-                questions[current_question]['explanation'] = {
-                    'text': explanation_text,
-                    'image_url': image_url
-                }
-                st.success("Explanation saved successfully!")
-
-            # Navigation buttons
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                if current_question > 0 and st.button("Previous"):
-                    st.session_state.current_question = current_question - 1
-                    st.rerun()
-            with col3:
-                if current_question < len(questions) - 1 and st.button("Next"):
-                    st.session_state.current_question = current_question + 1
-                    st.rerun()
-            with col2:
-                if st.button("Download Updated Document"):
-                    json_str = json.dumps(data, indent=2)
-                    b64 = base64.b64encode(json_str.encode()).decode()
-                    original_name = st.session_state.original_filename
-                    new_name = f"corrected_with_explanations_{original_name}"
-                    href = f'<a href="data:application/json;base64,{b64}" download="{new_name}">Download JSON</a>'
-                    st.markdown(href, unsafe_allow_html=True)
-
-            # Display metadata
-            st.write("---")
-            st.write("Metadata:")
-            display_metadata(data['metadata'])
-
-            # Update session state
-            st.session_state.data = data
-
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
 
 
 
@@ -257,7 +126,6 @@ def show_metadata_form(metadata):
                                         help="Enter a number to represent the exam (e.g., 1 for first exam, 2 for second exam, etc.)")
 
     return school, exam_year, exam_month, subject_year, semester, topic, exam_variable
-
 
 
 
@@ -398,16 +266,6 @@ def parse_options(question_index, options_text):
         option_letter = chr(65 + idx)  # A, B, C, D, E
         parsed_options[option_letter] = opt.strip()
     st.session_state.exam_data["content"]["questions"][question_index]['options'] = parsed_options
-
-
-
-
-
-
-
-
-
-
 
 
 def show_visualize_test_page():
