@@ -14,20 +14,6 @@ import time
 import os
 import re
 
-
-cloudinary.config( 
-    cloud_name = st.secrets["cloudinary"]["cloud_name"],
-    api_key = st.secrets["cloudinary"]["api_key"],
-    api_secret = st.secrets["cloudinary"]["api_secret"],
-    secure=True
-)
-
-
-def upload_image_to_cloudinary(image_path):
-    response = cloudinary.uploader.upload(image_path)
-    return response['secure_url']
-
-
 with open('curriculum_structure.json', 'r') as f:
     curriculum_data = json.load(f)
 
@@ -36,31 +22,13 @@ with open('schools.json', 'r') as f:
 
 
 
-def generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_variable):
-    semester_map = {
-        "First Year": {"S1": "S1", "S2": "S2"},
-        "Second Year": {"S3": "S3", "S4": "S4"},
-        "Third Year": {"S5": "S5", "S6": "S6"},
-        "Fourth Year": {"S7": "S7", "S8": "S8"},
-        "Fifth Year": {"S9": "S9", "S10": "S10"}
-    }
-    semester_code = semester_map[subject_year][semester]
-    return f"{semester_code}_{school}_{topic}_{exam_year}_{exam_month}_{exam_variable}".replace(" ", "_")
 
-
-def extract_questions_from_text(text):
-    # Simple regex-based question extraction
-    questions = re.findall(r'\d+\.\s*(.*?)(?=\n\d+\.|\Z)', text, re.DOTALL)
-    return [{"question": q.strip(), "options": {}} for q in questions]
-
-
-def get_json_download_link(json_data, filename):
-    json_str = json.dumps(json_data, indent=2)
-    b64 = base64.b64encode(json_str.encode()).decode()
-    return f'<a href="data:application/json;base64,{b64}" download="{filename}">Download JSON</a>'
-
-
-
+cloudinary.config( 
+    cloud_name = st.secrets["cloudinary"]["cloud_name"],
+    api_key = st.secrets["cloudinary"]["api_key"],
+    api_secret = st.secrets["cloudinary"]["api_secret"],
+    secure=True
+)
 
 
 def upload_image_to_cloudinary(image):
@@ -71,7 +39,6 @@ def upload_image_to_cloudinary(image):
         response = cloudinary.uploader.upload(buffer)
         return response['secure_url']
     return None
-
 
 
 def generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_variable):
@@ -86,7 +53,6 @@ def generate_unique_id(school, subject_year, semester, topic, exam_year, exam_mo
     exam_year_str = exam_year if exam_year != "Unknown" else "UNK"
     exam_month_str = exam_month if exam_month != "Unknown" else "UNK"
     return f"{semester_code}_{school}_{topic}_{exam_year_str}_{exam_month_str}_{exam_variable}".replace(" ", "_")
-
 
 def show_metadata_form(metadata):
     col1, col2 = st.columns(2)
@@ -110,24 +76,30 @@ def show_metadata_form(metadata):
 
     with col2:
         subject_years = list(curriculum_data.keys())
-        subject_year = st.selectbox("Year of Subject", options=subject_years, 
-                                    index=subject_years.index(metadata.get("subject_year", subject_years[0])))
+        default_subject_year = metadata.get("subject_year", subject_years[0])
+        subject_year_index = subject_years.index(default_subject_year) if default_subject_year in subject_years else 0
+        subject_year = st.selectbox("Year of Subject", options=subject_years, index=subject_year_index)
         
         semesters = list(curriculum_data[subject_year].keys())
-        semester = st.selectbox("Semester", options=semesters, 
-                                index=semesters.index(metadata.get("semester", semesters[0])))
+        default_semester = metadata.get("semester", semesters[0])
+        semester_index = semesters.index(default_semester) if default_semester in semesters else 0
+        semester = st.selectbox("Semester", options=semesters, index=semester_index)
         
         topics = curriculum_data[subject_year][semester]
-        topic = st.selectbox("Topic", options=topics, 
-                             index=topics.index(metadata.get("topic", topics[0])))
+        default_topic = metadata.get("topic")
+        if default_topic in topics:
+            topic_index = topics.index(default_topic)
+        else:
+            topic_index = 0
+            if default_topic:
+                st.warning(f"Previously selected topic '{default_topic}' is not available in the current semester. Please select a new topic.")
+        topic = st.selectbox("Topic", options=topics, index=topic_index)
         
         exam_variable = st.number_input("Exam Variable", min_value=1, max_value=10, 
                                         value=metadata.get("exam_variable", 1), step=1, 
                                         help="Enter a number to represent the exam (e.g., 1 for first exam, 2 for second exam, etc.)")
 
     return school, exam_year, exam_month, subject_year, semester, topic, exam_variable
-
-
 
 
 
@@ -283,22 +255,6 @@ def parse_options(options_text):
         option_letter = chr(65 + idx)  # A, B, C, D, E
         parsed_options[option_letter] = opt.strip()
     return parsed_options
-
-def update_question(question_index):
-    # This function is called when the question text changes
-    question = st.session_state.exam_data["content"]["questions"][question_index]
-    question['question'] = st.session_state[f"q{question_index}_text"]
-
-def update_correct_answers(question_index):
-    question = st.session_state.exam_data["content"]["questions"][question_index]
-    correct_answers_input = st.session_state[f"q{question_index}_correct_input"]
-    question['correct_answers'] = [ans for ans in correct_answers_input.upper() if ans in question['options']]
-    question['isAnswered'] = bool(question['correct_answers'])
-
-
-
-
-
 
 
 def show_visualize_test_page():
