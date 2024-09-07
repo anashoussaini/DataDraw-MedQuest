@@ -130,6 +130,7 @@ def show_metadata_form(metadata):
 
 
 
+
 def show_create_exam_page():
     st.header("Create Exam")
 
@@ -190,7 +191,18 @@ def show_create_exam_page():
             for i, question in enumerate(questions):
                 with st.expander(f"Question {i + 1}", expanded=True):
                     # Question text
-                    question['question'] = st.text_area(f"Question Text #{i+1}", question['question'], height=100, key=f"q{i}_text")
+                    question_text = st.text_area(
+                        f"Question Text #{i+1}",
+                        question['question'],
+                        height=100,
+                        key=f"q{i}_text"
+                    )
+                    if question_text != question['question']:
+                        question['question'] = question_text
+                    
+                    # Display parsed question
+                    st.write("Parsed Question:")
+                    st.text(question['question'])
 
                     # Image upload for question
                     uploaded_image = st.file_uploader(f"Upload an image for question #{i+1}", type=["png", "jpg", "jpeg"], key=f"q{i}_image")
@@ -203,13 +215,17 @@ def show_create_exam_page():
                         st.image(question['image_url'], caption="Question Image", width=300)
 
                     # Options input with automatic parsing
-                    options_text = st.text_area("Options (paste one option per line, max 5 lines, press Ctrl+Enter to apply)", 
-                                                value="\n".join(question.get('options', {}).values()),
-                                                height=150, key=f"q{i}_options")
-
-                    # Parse options when Ctrl+Enter is pressed
-                    if st.session_state.get(f"q{i}_options") != options_text:
-                        parse_options(i, options_text)
+                    options_text = st.text_area(
+                        "Options (one option per line, max 5 lines)",
+                        value="\n".join(question.get('options', {}).values()),
+                        height=150,
+                        key=f"q{i}_options"
+                    )
+                    
+                    # Parse options
+                    new_options = parse_options(options_text)
+                    if new_options != question['options']:
+                        question['options'] = new_options
 
                     # Display parsed options
                     st.write("Parsed Options:")
@@ -217,20 +233,21 @@ def show_create_exam_page():
                         st.text(f"{key}: {value}")
 
                     # Quick input for correct answers
-                    correct_answers_input = st.text_input("Correct Answer(s) (e.g., ABC, DE, A)", 
-                                                          value="".join(question.get('correct_answers', [])),
-                                                          key=f"q{i}_correct_input")
-                    
-                    # Update correct answers when input changes
-                    if correct_answers_input:
-                        question['correct_answers'] = [ans for ans in correct_answers_input.upper() if ans in question['options']]
-                        question['isAnswered'] = bool(question['correct_answers'])
-                    else:
-                        question['correct_answers'] = []
-                        question['isAnswered'] = False
+                    correct_answers_input = st.text_input(
+                        "Correct Answer(s) (e.g., ABC, DE, A)",
+                        value="".join(question.get('correct_answers', [])),
+                        key=f"q{i}_correct_input"
+                    )
+
+                    # Update correct answers
+                    new_correct_answers = [ans for ans in correct_answers_input.upper() if ans in question['options']]
+                    if new_correct_answers != question['correct_answers']:
+                        question['correct_answers'] = new_correct_answers
+                        question['isAnswered'] = bool(new_correct_answers)
 
                     # Display selected correct answers
-                    st.write("Selected Correct Answer(s):", ", ".join(question.get('correct_answers', [])))
+                    st.write("Parsed Correct Answer(s):")
+                    st.text(", ".join(question['correct_answers']))
 
         else:  # JSON input method
             json_input = st.text_area("Paste JSON for questions here", height=300)
@@ -259,13 +276,29 @@ def show_create_exam_page():
             href = f'<a href="data:application/json;base64,{b64}" download="{file_name}">Download Exam JSON</a>'
             st.markdown(href, unsafe_allow_html=True)
 
-def parse_options(question_index, options_text):
+def parse_options(options_text):
     options_list = options_text.split('\n')[:5]  # Limit to 5 options
     parsed_options = {}
     for idx, opt in enumerate(options_list):
         option_letter = chr(65 + idx)  # A, B, C, D, E
         parsed_options[option_letter] = opt.strip()
-    st.session_state.exam_data["content"]["questions"][question_index]['options'] = parsed_options
+    return parsed_options
+
+def update_question(question_index):
+    # This function is called when the question text changes
+    question = st.session_state.exam_data["content"]["questions"][question_index]
+    question['question'] = st.session_state[f"q{question_index}_text"]
+
+def update_correct_answers(question_index):
+    question = st.session_state.exam_data["content"]["questions"][question_index]
+    correct_answers_input = st.session_state[f"q{question_index}_correct_input"]
+    question['correct_answers'] = [ans for ans in correct_answers_input.upper() if ans in question['options']]
+    question['isAnswered'] = bool(question['correct_answers'])
+
+
+
+
+
 
 
 def show_visualize_test_page():
