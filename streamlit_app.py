@@ -334,6 +334,7 @@ def show_visualize_test_page():
             st.error("Invalid JSON file. Please upload a valid exam JSON file.")
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
+
 def show_edit_json_page():
     st.header("Edit JSON")
 
@@ -418,5 +419,3 @@ def main():
 if __name__ == "__main__":
     main()
 
-if __name__ == "__main__":
-    main()
