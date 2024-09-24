@@ -334,18 +334,89 @@ def show_visualize_test_page():
             st.error("Invalid JSON file. Please upload a valid exam JSON file.")
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
+def show_edit_json_page():
+    st.header("Edit JSON")
+
+    uploaded_file = st.file_uploader("Upload JSON file", type="json")
+    
+    if uploaded_file is not None:
+        try:
+            data = json.load(uploaded_file)
+            
+            # Display and edit metadata
+            st.subheader("Metadata")
+            metadata = data.get("metadata", {})
+            for key, value in metadata.items():
+                new_value = st.text_input(f"{key}", value)
+                metadata[key] = new_value
+            
+            # Display and edit questions
+            st.subheader("Questions")
+            questions = data.get("content", {}).get("questions", [])
+            for i, question in enumerate(questions):
+                with st.expander(f"Question {i + 1}", expanded=False):
+                    question['question'] = st.text_area(f"Question Text", question['question'], height=100)
+                    
+                    if 'image_url' in question:
+                        st.image(question['image_url'], caption="Question Image", width=300)
+                        if st.button(f"Remove Image for Question {i + 1}"):
+                            del question['image_url']
+                    
+                    options = question.get('options', {})
+                    st.write("Options:")
+                    for option in ['A', 'B', 'C', 'D', 'E']:
+                        options[option] = st.text_input(f"Option {option}", options.get(option, ""))
+                    question['options'] = options
+                    
+                    correct_answers = st.text_input("Correct Answer(s) (e.g., ABC, DE, A)", 
+                                                    ",".join(question.get('correct_answers', [])))
+                    question['correct_answers'] = [ans.strip().upper() for ans in correct_answers.split(',') if ans.strip()]
+                    
+                    if st.button(f"Delete Question {i + 1}"):
+                        questions.pop(i)
+                        st.rerun()
+            
+            if st.button("Add New Question"):
+                questions.append({
+                    "question": "",
+                    "options": {"A": "", "B": "", "C": "", "D": "", "E": ""},
+                    "correct_answers": [],
+                    "isAnswered": False
+                })
+                st.rerun()
+            
+            # Update the data with edited content
+            data["metadata"] = metadata
+            data["content"]["questions"] = questions
+            
+            # Generate and download updated JSON
+            if st.button("Download Updated JSON"):
+                json_str = json.dumps(data, indent=2)
+                b64 = base64.b64encode(json_str.encode()).decode()
+                file_name = f"updated_{uploaded_file.name}"
+                href = f'<a href="data:application/json;base64,{b64}" download="{file_name}">Download Updated JSON</a>'
+                st.markdown(href, unsafe_allow_html=True)
+        
+        except json.JSONDecodeError:
+            st.error("Invalid JSON file. Please upload a valid exam JSON file.")
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
 
 # Update the main function to include the new page
 def main():
     st.set_page_config(page_title="MEDQUEST Admin Tool", layout="wide")
 
-    page = st.sidebar.selectbox("Select a page", ["Create Exam", "Visualize Test"])
-
+    page = st.sidebar.selectbox("Select a page", ["Create Exam", "Visualize Test", "Edit JSON"])
 
     if page == "Create Exam":
         show_create_exam_page()
     elif page == "Visualize Test":
         show_visualize_test_page()
+    elif page == "Edit JSON":
+        show_edit_json_page()
+
+if __name__ == "__main__":
+    main()
 
 if __name__ == "__main__":
     main()
