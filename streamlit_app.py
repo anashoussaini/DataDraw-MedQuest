@@ -335,14 +335,22 @@ def show_visualize_test_page():
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
 
+
+
 def show_edit_json_page():
     st.header("Edit JSON")
 
+    if 'edited_data' not in st.session_state:
+        st.session_state.edited_data = None
+
     uploaded_file = st.file_uploader("Upload JSON file", type="json")
     
     if uploaded_file is not None:
         try:
-            data = json.load(uploaded_file)
+            if st.session_state.edited_data is None:
+                st.session_state.edited_data = json.load(uploaded_file)
+            
+            data = st.session_state.edited_data
             
             # Metadata editing
             st.subheader("Exam Metadata")
@@ -361,7 +369,13 @@ def show_edit_json_page():
                     "semester": semester,
                     "topic": topic
                 }
+                st.session_state.edited_data = data
                 st.success("Metadata updated successfully!")
+                st.rerun()
+            
+            # Display current metadata
+            st.write("Current Metadata:")
+            st.json(data["metadata"])
             
             # Display and edit questions
             st.subheader("Questions")
@@ -371,18 +385,24 @@ def show_edit_json_page():
             num_questions = st.number_input("Number of Questions", min_value=1, value=len(questions), step=1)
             
             # Adjust the number of questions
-            while len(questions) < num_questions:
-                questions.append({"question": "", "options": {}, "correct_answers": [], "isAnswered": False})
-            questions = questions[:num_questions]  # Remove extra questions if number is reduced
+            if len(questions) != num_questions:
+                while len(questions) < num_questions:
+                    questions.append({"question": "", "options": {}, "correct_answers": [], "isAnswered": False})
+                questions = questions[:num_questions]  # Remove extra questions if number is reduced
+                data["content"]["questions"] = questions
+                st.session_state.edited_data = data
+                st.rerun()
             
             for i, question in enumerate(questions):
                 with st.expander(f"Question {i + 1}", expanded=False):
-                    question['question'] = st.text_area(f"Question Text #{i+1}", question['question'], height=100)
+                    question['question'] = st.text_area(f"Question Text #{i+1}", question['question'], height=100, key=f"q{i}_text")
                     
                     if 'image_url' in question:
                         st.image(question['image_url'], caption="Question Image", width=300)
-                        if st.button(f"Remove Image for Question {i + 1}"):
+                        if st.button(f"Remove Image for Question {i + 1}", key=f"remove_image_{i}"):
                             del question['image_url']
+                            st.session_state.edited_data = data
+                            st.rerun()
                     
                     # Options input with automatic parsing
                     options_text = st.text_area(
@@ -396,6 +416,7 @@ def show_edit_json_page():
                     new_options = parse_options(options_text)
                     if new_options != question.get('options', {}):
                         question['options'] = new_options
+                        st.session_state.edited_data = data
 
                     # Display parsed options
                     st.write("Parsed Options:")
@@ -414,140 +435,15 @@ def show_edit_json_page():
                     if new_correct_answers != question.get('correct_answers', []):
                         question['correct_answers'] = new_correct_answers
                         question['isAnswered'] = bool(new_correct_answers)
+                        st.session_state.edited_data = data
 
                     # Display selected correct answers
                     st.write("Parsed Correct Answer(s):")
                     st.text(", ".join(question['correct_answers']))
             
-            # Update the data with edited content
-            data["content"]["questions"] = questions
-            
             # Generate and download updated JSON
             if st.button("Download Updated JSON"):
-                json_str = json.dumps(data, indent=2)
-                b64 = base64.b64encode(json_str.encode()).decode()
-                file_name = f"updated_{uploaded_file.name}"
-                href = f'<a href="data:application/json;base64,{b64}" download="{file_name}">Download Updated JSON</a>'
-                st.markdown(href, unsafe_allow_html=True)
-        
-        except json.JSONDecodeError:
-            st.error("Invalid JSON file. Please upload a valid exam JSON file.")
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
-
-# Make sure to include the parse_options function if it's not already in your code
-def parse_options(options_text):
-    options_list = options_text.split('\n')[:5]  # Limit to 5 options
-    parsed_options = {}
-    for idx, opt in enumerate(options_list):
-        option_letter = chr(65 + idx)  # A, B, C, D, E
-        parsed_options[option_letter] = opt.strip()
-    return parsed_options
-
-# Update the main function to include the new page (if not already updated)
-def main():
-    st.set_page_config(page_title="MEDQUEST Admin Tool", layout="wide")
-
-    page = st.sidebar.selectbox("Select a page", ["Create Exam", "Visualize Test", "Edit JSON"])
-
-    if page == "Create Exam":
-        show_create_exam_page()
-    elif page == "Visualize Test":
-        show_visualize_test_page()
-    elif page == "Edit JSON":
-        show_edit_json_page()
-
-if __name__ == "__main__":
-    main()def show_edit_json_page():
-    st.header("Edit JSON")
-
-    uploaded_file = st.file_uploader("Upload JSON file", type="json")
-    
-    if uploaded_file is not None:
-        try:
-            data = json.load(uploaded_file)
-            
-            # Metadata editing
-            st.subheader("Exam Metadata")
-            metadata = data.get("metadata", {})
-            school, exam_year, exam_month, subject_year, semester, topic, exam_variable = show_metadata_form(metadata)
-            
-            if st.button("Update Metadata"):
-                unique_id = generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_variable)
-                data["metadata"] = {
-                    "unique_id": unique_id,
-                    "school": school,
-                    "exam_year": exam_year,
-                    "exam_month": exam_month,
-                    "exam_variable": exam_variable,
-                    "subject_year": subject_year,
-                    "semester": semester,
-                    "topic": topic
-                }
-                st.success("Metadata updated successfully!")
-            
-            # Display and edit questions
-            st.subheader("Questions")
-            questions = data.get("content", {}).get("questions", [])
-            
-            # Number of questions input
-            num_questions = st.number_input("Number of Questions", min_value=1, value=len(questions), step=1)
-            
-            # Adjust the number of questions
-            while len(questions) < num_questions:
-                questions.append({"question": "", "options": {}, "correct_answers": [], "isAnswered": False})
-            questions = questions[:num_questions]  # Remove extra questions if number is reduced
-            
-            for i, question in enumerate(questions):
-                with st.expander(f"Question {i + 1}", expanded=False):
-                    question['question'] = st.text_area(f"Question Text #{i+1}", question['question'], height=100)
-                    
-                    if 'image_url' in question:
-                        st.image(question['image_url'], caption="Question Image", width=300)
-                        if st.button(f"Remove Image for Question {i + 1}"):
-                            del question['image_url']
-                    
-                    # Options input with automatic parsing
-                    options_text = st.text_area(
-                        "Options (one option per line, max 5 lines)",
-                        value="\n".join(question.get('options', {}).values()),
-                        height=150,
-                        key=f"q{i}_options"
-                    )
-                    
-                    # Parse options
-                    new_options = parse_options(options_text)
-                    if new_options != question.get('options', {}):
-                        question['options'] = new_options
-
-                    # Display parsed options
-                    st.write("Parsed Options:")
-                    for key, value in question['options'].items():
-                        st.text(f"{key}: {value}")
-                    
-                    # Correct answers input
-                    correct_answers_input = st.text_input(
-                        "Correct Answer(s) (e.g., ABC, DE, A)",
-                        value="".join(question.get('correct_answers', [])),
-                        key=f"q{i}_correct_input"
-                    )
-
-                    # Update correct answers
-                    new_correct_answers = [ans for ans in correct_answers_input.upper() if ans in question['options']]
-                    if new_correct_answers != question.get('correct_answers', []):
-                        question['correct_answers'] = new_correct_answers
-                        question['isAnswered'] = bool(new_correct_answers)
-
-                    # Display selected correct answers
-                    st.write("Parsed Correct Answer(s):")
-                    st.text(", ".join(question['correct_answers']))
-            
-            # Update the data with edited content
-            data["content"]["questions"] = questions
-            
-            # Generate and download updated JSON
-            if st.button("Download Updated JSON"):
-                json_str = json.dumps(data, indent=2)
+                json_str = json.dumps(st.session_state.edited_data, indent=2)
                 b64 = base64.b64encode(json_str.encode()).decode()
                 file_name = f"updated_{uploaded_file.name}"
                 href = f'<a href="data:application/json;base64,{b64}" download="{file_name}">Download Updated JSON</a>'
@@ -582,4 +478,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-
