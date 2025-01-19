@@ -708,27 +708,26 @@ def show_metadata_form(metadata):
 def show_create_exam_page():
     st.header("Create Exam")
 
-    # ---------------------------
     # A) Initialize session state
-    # ---------------------------
     if 'exam_data' not in st.session_state:
         st.session_state.exam_data = {
             "metadata": {},
             "content": {"questions": []}
         }
     
-    # ---------------------------
     # B) Display / Update Metadata
-    # ---------------------------
     if 'metadata_submitted' not in st.session_state or st.session_state.get('edit_metadata', False):
         st.subheader("Exam Metadata")
-        # Pass the existing metadata (if any) so we can reuse it in the form
+
+        # Grab current metadata, if any
         school, exam_year, exam_month, subject_year, semester, topic, exam_variable = show_metadata_form(
             st.session_state.exam_data.get("metadata", {})
         )
 
         if st.button("Submit Metadata"):
-            unique_id = generate_unique_id(school, subject_year, semester, topic, exam_year, exam_month, exam_variable)
+            unique_id = generate_unique_id(
+                school, subject_year, semester, topic, exam_year, exam_month, exam_variable
+            )
             st.session_state.exam_data["metadata"] = {
                 "unique_id": unique_id,
                 "school": school,
@@ -741,17 +740,15 @@ def show_create_exam_page():
             }
             st.session_state.metadata_submitted = True
             st.session_state.edit_metadata = False
-            # NOTE: We won't call st.rerun() here to avoid clearing data
+
             st.success("Metadata has been set. Scroll down to add questions.")
+
     else:
         st.write(f"Unique Exam ID: {st.session_state.exam_data['metadata']['unique_id']}")
         if st.button("Edit Metadata"):
             st.session_state.edit_metadata = True
-            # Again, no st.rerun() needed in many cases.
 
-    # ---------------------------
     # C) Question Input
-    # ---------------------------
     if 'metadata_submitted' in st.session_state:
         st.subheader("Questions")
 
@@ -762,7 +759,7 @@ def show_create_exam_page():
             step=1
         )
         
-        # Ensure we have the correct number of question dicts
+        # Adjust the question list length
         while len(st.session_state.exam_data["content"]["questions"]) < num_questions:
             st.session_state.exam_data["content"]["questions"].append({
                 "question": "",
@@ -770,34 +767,38 @@ def show_create_exam_page():
                 "correct_answers": [],
                 "isAnswered": False
             })
-        
-        # Remove extra questions if the number was reduced
-        st.session_state.exam_data["content"]["questions"] = st.session_state.exam_data["content"]["questions"][:num_questions]
+        st.session_state.exam_data["content"]["questions"] = \
+            st.session_state.exam_data["content"]["questions"][:num_questions]
 
         questions = st.session_state.exam_data["content"]["questions"]
 
         input_method = st.radio("Input Method", ["Normal", "JSON"])
 
         if input_method == "Normal":
-            # Display all questions in expansions
+            # Each question in an expander
             for i, question in enumerate(questions):
                 with st.expander(f"Question {i+1}", expanded=True):
-                    question_text = st.text_area(f"Question Text #{i+1}", question['question'], height=100, key=f"q{i}_text")
-                    if question_text != question['question']:
-                        question['question'] = question_text
-                    
+                    question_text = st.text_area(
+                        f"Question Text #{i+1}",
+                        question['question'],
+                        height=100,
+                        key=f"q{i}_text"
+                    )
+                    question['question'] = question_text
+
                     st.write("Parsed Question:")
                     st.text(question['question'])
 
+                    # Image upload
                     uploaded_image = st.file_uploader(
                         f"Upload an image for question #{i+1}",
                         type=["png", "jpg", "jpeg"],
                         key=f"q{i}_image"
                     )
                     if uploaded_image:
-                        image = Image.open(uploaded_image)
-                        st.image(image, caption="Uploaded Image", width=300)
-                        image_url = upload_image_to_cloudinary(image)
+                        image_obj = Image.open(uploaded_image)
+                        st.image(image_obj, caption="Uploaded Image", width=300)
+                        image_url = upload_image_to_cloudinary(image_obj)
                         question['image_url'] = image_url
                     elif 'image_url' in question:
                         st.image(question['image_url'], caption="Question Image", width=300)
@@ -809,25 +810,22 @@ def show_create_exam_page():
                         height=150,
                         key=f"q{i}_options"
                     )
-                    
                     new_options = parse_options(options_text)
-                    if new_options != question['options']:
-                        question['options'] = new_options
+                    question['options'] = new_options
 
                     st.write("Parsed Options:")
-                    for key, value in question['options'].items():
-                        st.text(f"{key}: {value}")
+                    for key, val in question['options'].items():
+                        st.text(f"{key}: {val}")
 
                     correct_answers_input = st.text_input(
                         "Correct Answer(s) (e.g., ABC, DE, A)",
                         value="".join(question.get('correct_answers', [])),
                         key=f"q{i}_correct_input"
                     )
-
-                    new_correct_answers = [ans for ans in correct_answers_input.upper() if ans in question['options']]
-                    if new_correct_answers != question['correct_answers']:
-                        question['correct_answers'] = new_correct_answers
-                        question['isAnswered'] = bool(new_correct_answers)
+                    new_correct_answers = [ans for ans in correct_answers_input.upper()
+                                           if ans in question['options']]
+                    question['correct_answers'] = new_correct_answers
+                    question['isAnswered'] = bool(new_correct_answers)
 
                     st.write("Parsed Correct Answer(s):")
                     st.text(", ".join(question['correct_answers']))
@@ -840,47 +838,36 @@ def show_create_exam_page():
                     if isinstance(new_questions, list):
                         for q in new_questions:
                             if 'question' in q and 'options' in q:
-                                # default 'correct_answers' if missing
                                 q['correct_answers'] = q.get('correct_answers', [])
                                 q['isAnswered'] = q.get('isAnswered', False)
                                 questions.append(q)
                         st.session_state.exam_data["content"]["questions"] = questions
                         st.success(f"Successfully added {len(new_questions)} questions.")
                     else:
-                        st.error("Invalid JSON format. Please provide a list of question objects.")
+                        st.error("Invalid JSON format. Must be a list of question objects.")
                 except json.JSONDecodeError:
                     st.error("Invalid JSON. Please check your input.")
 
-        # ---------------------------
-        # D) Generate Exam JSON
-        # ---------------------------
+        # D) Submit Exam
         st.markdown("---")
-        if st.button("Generate Exam JSON"):
-            exam_data = st.session_state.exam_data  # entire dictionary
-            # Debug display, so you can verify the metadata is correct
-            st.write("Debug: final exam_data before uploading:")
-            st.json(exam_data)
-            
-            # Convert to JSON
+        if st.button("Submit Exam"):
+            # 1. Get exam_data
+            exam_data = st.session_state.exam_data
+
+            # 2. Convert to JSON
             json_str = json.dumps(exam_data, indent=2)
 
-            # 1) Upload to Google Drive
+            # 3. Upload JSON to Drive
             filename = f"{exam_data['metadata']['unique_id']}.json"
             upload_json_to_drive(json_str, filename)
 
-            # 2) Append to Google Sheet
+            # 4. Append to Google Sheet
             append_metadata_to_gsheet(exam_data)
 
-            # Final success message only
-            st.success("Exam successfully created and recorded in Google Sheets!")
+            # 5. Show a simple success message
+            st.success("Exam has been successfully submitted and recorded in Google Sheets!")
 
-            # If you do NOT want to show link or download,
-            # do NOT provide those lines:
-            # st.markdown(f"[View Uploaded File]...")
-            # or the base64 download.
 
-            # If you want the user to see the final data, 
-            # you can optionally keep st.json(...) or remove it.
 
 
 def show_visualize_test_page():
