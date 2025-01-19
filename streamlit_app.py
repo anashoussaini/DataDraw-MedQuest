@@ -698,7 +698,7 @@ def show_metadata_form(metadata):
                 st.warning(f"Previously selected topic '{default_topic}' is not available in the current semester. Please select a new topic.")
         topic = st.selectbox("Topic", options=topics, index=topic_index)
         
-        exam_variable = st.number_input("Exam Variable", min_value=1, max_value=10, 
+        exam_variable = st.number_input("Exam Variable", min_value=1, max_value=1000, 
                                         value=metadata.get("exam_variable", 1), step=1, 
                                         help="Enter a number to represent the exam (e.g., 1 for first exam, 2 for second exam, etc.)")
 
