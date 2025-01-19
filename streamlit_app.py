@@ -496,76 +496,70 @@ from openai import OpenAI
 import time
 import os
 import re
+
 import json
 from datetime import datetime
 
 def append_metadata_to_gsheet(exam_data):
     """
     Appends exam info (metadata + question count + timestamp) to a Google Sheet.
-    
-    exam_data is the full dictionary with:
-      {
-        "metadata": {...},
-        "content": {
-            "questions": [...]
-        }
-      }
+    Ensure you have a tab named "Metadata" in your Google Sheet,
+    or change "Metadata!A1:K" below to the actual sheet/tab name & range.
     """
     sheets_service = get_gsheet_service()
     spreadsheet_id = st.secrets["gcp_sheets"]["spreadsheet_id"]
 
-    metadata = exam_data["metadata"]
+    metadata = exam_data.get("metadata", {})
     questions = exam_data.get("content", {}).get("questions", [])
-    
-    # Generate a timestamp (current date/time) 
-    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
+    # Generate a timestamp
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     # Count of questions
     question_count = len(questions)
 
-    # Pull out metadata fields
-    unique_id = metadata.get("unique_id", "")
-    school = metadata.get("school", "")
-    exam_year = metadata.get("exam_year", "UNK")
-    exam_month = metadata.get("exam_month", "UNK")
-    exam_variable = metadata.get("exam_variable", "")
-    subject_year = metadata.get("subject_year", "")
-    semester = metadata.get("semester", "")
-    topic = metadata.get("topic", "")
+    # Pull out each field from metadata as strings (so they don't insert blank if they're int)
+    unique_id = str(metadata.get("unique_id", ""))
+    school = str(metadata.get("school", ""))
+    exam_year = str(metadata.get("exam_year", ""))
+    exam_month = str(metadata.get("exam_month", ""))
+    exam_variable = str(metadata.get("exam_variable", ""))
+    subject_year = str(metadata.get("subject_year", ""))
+    semester = str(metadata.get("semester", ""))
+    topic = str(metadata.get("topic", ""))
 
-    # (Optional) Entire metadata as JSON string
+    # (Optional) entire metadata as JSON
     metadata_json_str = json.dumps(metadata)
 
     # Build the row to append
     new_row = [
-        timestamp,        # A
-        unique_id,        # B
-        school,           # C
-        str(exam_year),   # D
-        exam_month,       # E
-        str(exam_variable),  # F
-        subject_year,     # G
-        semester,         # H
-        topic,            # I
-        question_count,   # J
-       
+        timestamp,       # A
+        unique_id,       # B
+        school,          # C
+        exam_year,       # D
+        exam_month,      # E
+        exam_variable,   # F
+        subject_year,    # G
+        semester,        # H
+        topic,           # I
+        question_count,  # J
+        metadata_json_str  # K (optional)
     ]
 
-  
-    body = {
-        "values": [new_row]
-    }
+    body = {"values": [new_row]}
 
-    
+    # Adjust range if needed (e.g., if your sheet is named "Sheet1", use "Sheet1!A1:K")
+    # Make sure columns A–K exist if you're appending 11 columns
     result = sheets_service.spreadsheets().values().append(
         spreadsheetId=spreadsheet_id,
-        range="Metadata!A1:K",
+        range="Metadata!A1:K",  
         valueInputOption="USER_ENTERED",
         insertDataOption="INSERT_ROWS",
         body=body
     ).execute()
 
     return result
+
 
 
 with open('curriculum_structure.json', 'r') as f:
@@ -892,26 +886,20 @@ def show_create_exam_page():
         #     st.markdown(href, unsafe_allow_html=True)
         if st.button("Generate Exam JSON"):
             # Convert exam_data to a JSON string
-            json_str = json.dumps(st.session_state.exam_data, indent=2)
+            exam_data = st.session_state.exam_data  # Full data
+            json_str = json.dumps(exam_data, indent=2)
         
-            # 1) Upload to Google Drive
-            filename = f"{st.session_state.exam_data['metadata']['unique_id']}.json"
+            # 1) Upload JSON to Google Drive (if you want to keep that step)
+            filename = f"{exam_data['metadata']['unique_id']}.json"
             uploaded_file_info = upload_json_to_drive(json_str, filename)
-            st.success(f"Exam JSON has been uploaded to Drive with ID: {uploaded_file_info['id']}")
+            
+            # 2) Append entire exam_data to Google Sheet
+            append_result = append_metadata_to_gsheet(exam_data)
         
-            # 2) Append Metadata to Google Sheet
-            # Pass the entire exam_data so we can get question count, etc.
-            append_result = append_metadata_to_gsheet(st.session_state.exam_data)
-            st.success("Exam metadata has been appended to the Google Sheet.")
-        
-            # 3) Provide a direct link to Drive + optional download link
-            drive_link = uploaded_file_info.get("webViewLink", "")
-            st.markdown(f"[View Uploaded File in Drive]({drive_link})")
-        
-            b64 = base64.b64encode(json_str.encode()).decode()
-            file_name = f"{st.session_state.exam_data['metadata']['unique_id']}.json"
-            href = f'<a href="data:application/json;base64,{b64}" download="{file_name}">Download Exam JSON</a>'
-            st.markdown(href, unsafe_allow_html=True)
+            # Show only one success message
+            st.success("Exam successfully created and recorded in Google Sheets!")
+
+
 
 
 
