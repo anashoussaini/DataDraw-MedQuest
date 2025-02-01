@@ -48,7 +48,6 @@
   },
   "Fourth Year": {
     "S7": [
-      "Anatomie Pathologique",
       "Dermatologie / Endocrinologie",
       "Hematologie / Oncologie",
       "Système Nerveux",
@@ -57,6 +56,7 @@
     ],
     "S8": [
       "Maladies de L'enfant",
+      "Anatomie Pathologique",
       "Immunologie - Genetique - Maladies Inflammatoire",
       "Pharmacologie"
     ]
