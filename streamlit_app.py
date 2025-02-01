@@ -613,8 +613,6 @@
 #     main()
 
 
-
-
 import streamlit as st
 import json
 import base64
@@ -633,6 +631,21 @@ from googleapiclient.http import MediaInMemoryUpload
 import cloudinary
 import cloudinary.uploader
 import cloudinary.api
+
+# ---------------------------
+# Helper: Safe Rerun Function
+# ---------------------------
+def safe_rerun():
+    """
+    Attempts to rerun the Streamlit script.
+    If the current version of Streamlit does not support rerun, a message is displayed.
+    """
+    if hasattr(st, "experimental_rerun"):
+        st.experimental_rerun()
+    elif hasattr(st, "rerun"):
+        st.rerun()
+    else:
+        st.write("Rerun functionality is not supported in your version of Streamlit. Please update Streamlit.")
 
 # ---------------------------
 # 1. Load configuration files
@@ -833,7 +846,7 @@ def show_create_exam_page():
             with open("draft_exam.json", "r") as f:
                 st.session_state.exam_data = json.load(f)
             st.success("Draft loaded!")
-            st.experimental_rerun()
+            safe_rerun()
 
     # --- Metadata Input Section ---
     if 'metadata_submitted' not in st.session_state or st.session_state.get('edit_metadata', False):
@@ -856,12 +869,12 @@ def show_create_exam_page():
             st.session_state.metadata_submitted = True
             st.session_state.edit_metadata = False
             st.success("Metadata has been set. Scroll down to add questions.")
-            st.experimental_rerun()
+            safe_rerun()
     else:
         st.write(f"Unique Exam ID: {st.session_state.exam_data['metadata']['unique_id']}")
         if st.button("Edit Metadata"):
             st.session_state.edit_metadata = True
-            st.experimental_rerun()
+            safe_rerun()
 
     # --- Questions Input Section (only if metadata is set) ---
     if 'metadata_submitted' in st.session_state:
@@ -955,12 +968,12 @@ def show_create_exam_page():
             if current_page > 0:
                 if st.button("Previous Page"):
                     st.session_state.current_page = current_page - 1
-                    st.experimental_rerun()
+                    safe_rerun()
         with col3:
             if current_page < total_pages - 1:
                 if st.button("Next Page"):
                     st.session_state.current_page = current_page + 1
-                    st.experimental_rerun()
+                    safe_rerun()
 
         st.markdown("---")
         if st.button("Submit Exam"):
@@ -1018,12 +1031,12 @@ def show_visualize_test_page():
                     if question_index > 0:
                         if st.button("Previous"):
                             st.session_state.question_index = question_index - 1
-                            st.experimental_rerun()
+                            safe_rerun()
                 with col3:
                     if question_index < len(questions) - 1:
                         if st.button("Next"):
                             st.session_state.question_index = question_index + 1
-                            st.experimental_rerun()
+                            safe_rerun()
             else:
                 st.warning("No questions found in the uploaded JSON.")
         except json.JSONDecodeError:
@@ -1060,7 +1073,7 @@ def show_edit_json_page():
                 }
                 st.session_state.edited_data = data
                 st.success("Metadata updated successfully!")
-                st.experimental_rerun()
+                safe_rerun()
             st.write("Current Metadata:")
             st.json(data["metadata"])
 
@@ -1073,7 +1086,7 @@ def show_edit_json_page():
                 questions = questions[:num_questions]
                 data["content"]["questions"] = questions
                 st.session_state.edited_data = data
-                st.experimental_rerun()
+                safe_rerun()
             for i, question in enumerate(questions):
                 with st.expander(f"Question {i + 1}", expanded=False):
                     question['question'] = st.text_area(f"Question Text #{i+1}", question.get('question', ""), height=100, key=f"edit_q{i}_text")
@@ -1082,7 +1095,7 @@ def show_edit_json_page():
                         if st.button(f"Remove Image for Question {i + 1}", key=f"remove_image_{i}"):
                             del question['image_url']
                             st.session_state.edited_data = data
-                            st.experimental_rerun()
+                            safe_rerun()
                     options_text = st.text_area("Options (one option per line, max 5 lines)",
                                                 "\n".join(question.get('options', {}).values()),
                                                 height=150, key=f"edit_q{i}_options")
