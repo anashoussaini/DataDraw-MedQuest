@@ -42,6 +42,18 @@ class MedicalDataCleaner:
         self.merged_counts = {}
         self.stripped_chars = defaultdict(int)
 
+    def should_ignore_json_file(self, file_path: Path, root_dir: Path | None = None) -> bool:
+        path_parts = file_path.parts if root_dir is None else file_path.relative_to(root_dir).parts
+        if "__MACOSX" in path_parts:
+            return True
+        return file_path.name.startswith("._")
+
+    def iter_json_files(self, root_dir: Path):
+        for file_path in root_dir.rglob("*.json"):
+            if self.should_ignore_json_file(file_path, root_dir):
+                continue
+            yield file_path
+
     def clean_text(self, txt: str, is_q: bool) -> str:
         s = txt.strip()
         for old, new in self.smart_map.items():
@@ -96,7 +108,7 @@ class MedicalDataCleaner:
         reports_root.mkdir(parents=True, exist_ok=True)
 
         groups = defaultdict(list)
-        for file_path in src.rglob("*.json"):
+        for file_path in self.iter_json_files(src):
             rel = file_path.relative_to(src)
             match = self.p["split_file"].match(rel.name)
             base = (match.group(1) if match else rel.stem) + ".json"

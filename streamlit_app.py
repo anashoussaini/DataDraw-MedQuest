@@ -237,13 +237,13 @@ def clean_uploaded_archive(uploaded_file, status_box=None):
         with zipfile.ZipFile(io.BytesIO(uploaded_file.getvalue())) as zip_file:
             extract_zip_safely(zip_file, extract_dir)
 
-        if not any(extract_dir.rglob("*.json")):
+        cleaner = MedicalDataCleaner()
+        if not any(cleaner.iter_json_files(extract_dir)):
             raise ValueError("The uploaded ZIP does not contain any JSON files.")
 
         if status_box is not None:
             status_box.write("Cleaning extracted JSON files.")
 
-        cleaner = MedicalDataCleaner()
         result = cleaner.process_directory(
             extract_dir,
             output_dir=cleaned_dir,
