@@ -5,6 +5,10 @@ import io
 import time
 import os
 import re
+import zipfile
+import tempfile
+from pathlib import Path
+from urllib.request import urlopen
 from PIL import Image
 
 # Google / Cloud Libraries
@@ -18,26 +22,42 @@ import cloudinary.api
 
 from datetime import datetime
 
+APP_DIR = Path(__file__).resolve().parent
+
+from clean_directory import MedicalDataCleaner
+
+CLOUDINARY_CONFIGURED = False
+
 
 # ---------------------------
 # 1. Load your JSON config files
 # ---------------------------
-with open('curriculum_structure.json', 'r') as f:
+with (APP_DIR / 'curriculum_structure.json').open('r', encoding='utf-8') as f:
     curriculum_data = json.load(f)
 
-with open('schools.json', 'r') as f:
+with (APP_DIR / 'schools.json').open('r', encoding='utf-8') as f:
     schools_data = json.load(f)
 
 
 # ---------------------------
 # 2. Configure Cloudinary
 # ---------------------------
-cloudinary.config(
-    cloud_name = st.secrets["cloudinary"]["cloud_name"],
-    api_key    = st.secrets["cloudinary"]["api_key"],
-    api_secret = st.secrets["cloudinary"]["api_secret"],
-    secure=True
-)
+def configure_cloudinary():
+    global CLOUDINARY_CONFIGURED
+    if CLOUDINARY_CONFIGURED:
+        return
+
+    try:
+        cloudinary.config(
+            cloud_name=st.secrets["cloudinary"]["cloud_name"],
+            api_key=st.secrets["cloudinary"]["api_key"],
+            api_secret=st.secrets["cloudinary"]["api_secret"],
+            secure=True
+        )
+    except Exception as exc:
+        raise RuntimeError("Cloudinary secrets are not configured.") from exc
+
+    CLOUDINARY_CONFIGURED = True
 
 
 # ---------------------------
@@ -143,6 +163,7 @@ def append_metadata_to_gsheet(exam_data):
 # ---------------------------
 def upload_image_to_cloudinary(image):
     if image is not None:
+        configure_cloudinary()
         buffer = io.BytesIO()
         image.save(buffer, format="PNG")
         buffer.seek(0)
@@ -171,6 +192,75 @@ def generate_unique_id(school, subject_year, semester, topic, exam_year, exam_mo
     exam_year_str = exam_year if exam_year != "Unknown" else "UNK"
     exam_month_str = exam_month if exam_month != "Unknown" else "UNK"
     return f"{semester_code}_{school}_{topic}_{exam_year_str}_{exam_month_str}_{exam_variable}".replace(" ", "_")
+
+
+def extract_zip_safely(zip_file, destination):
+    destination = destination.resolve()
+    for member in zip_file.infolist():
+        member_path = destination / member.filename
+        if not str(member_path.resolve()).startswith(str(destination)):
+            raise ValueError("The uploaded ZIP contains an invalid path.")
+    zip_file.extractall(destination)
+
+
+def build_cleaned_archive(cleaned_dir, reports):
+    archive_buffer = io.BytesIO()
+    with zipfile.ZipFile(archive_buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for file_path in cleaned_dir.rglob("*"):
+            if file_path.is_file():
+                archive.write(
+                    file_path,
+                    arcname=str(Path("cleaned") / file_path.relative_to(cleaned_dir)),
+                )
+
+        for report_name, report_text in reports.items():
+            archive.writestr(str(Path("reports") / report_name), report_text)
+
+    archive_buffer.seek(0)
+    return archive_buffer.getvalue()
+
+
+def clean_uploaded_archive(uploaded_file, status_box=None):
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        extract_dir = temp_root / "input"
+        cleaned_dir = temp_root / "cleaned"
+        reports_dir = temp_root / "reports"
+
+        extract_dir.mkdir(parents=True, exist_ok=True)
+        cleaned_dir.mkdir(parents=True, exist_ok=True)
+        reports_dir.mkdir(parents=True, exist_ok=True)
+
+        if status_box is not None:
+            status_box.write("Extracting the uploaded ZIP archive.")
+
+        with zipfile.ZipFile(io.BytesIO(uploaded_file.getvalue())) as zip_file:
+            extract_zip_safely(zip_file, extract_dir)
+
+        if not any(extract_dir.rglob("*.json")):
+            raise ValueError("The uploaded ZIP does not contain any JSON files.")
+
+        if status_box is not None:
+            status_box.write("Cleaning extracted JSON files.")
+
+        cleaner = MedicalDataCleaner()
+        result = cleaner.process_directory(
+            extract_dir,
+            output_dir=cleaned_dir,
+            reports_dir=reports_dir,
+        )
+
+        if status_box is not None:
+            status_box.write("Packing the cleaned output for download.")
+
+        archive_bytes = build_cleaned_archive(cleaned_dir, result["reports"])
+
+    return {
+        **result,
+        "archive_bytes": archive_bytes,
+        "source_filename": uploaded_file.name,
+        "download_name": f"{Path(uploaded_file.name).stem}_cleaned.zip",
+    }
 
 
 # ---------------------------
@@ -432,8 +522,8 @@ def show_visualize_test_page():
                 # Display image if present
                 if "image_url" in question:
                     try:
-                        response = requests.get(question["image_url"])
-                        img = Image.open(BytesIO(response.content))
+                        with urlopen(question["image_url"]) as response:
+                            img = Image.open(io.BytesIO(response.read()))
                         st.image(img, caption="Question Image", use_column_width=True)
                     except Exception as e:
                         st.error(f"Error loading image: {str(e)}")
@@ -468,6 +558,58 @@ def show_visualize_test_page():
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
 
+
+
+def show_clean_folder_page():
+    st.header("Clean Folder")
+    st.write("Upload a ZIP archive, run the directory cleaner on its JSON files, and download the cleaned result.")
+
+    uploaded_zip = st.file_uploader("Upload ZIP archive", type="zip", key="clean_folder_zip")
+    if uploaded_zip is None:
+        return
+
+    st.write(f"Selected archive: {uploaded_zip.name}")
+
+    if st.button("Run Cleaner", type="primary"):
+        try:
+            with st.status("Cleaning uploaded folder...", expanded=True) as status_box:
+                result = clean_uploaded_archive(uploaded_zip, status_box=status_box)
+                st.session_state.clean_folder_result = result
+                status_box.update(label="Folder cleaned successfully.", state="complete")
+        except zipfile.BadZipFile:
+            st.session_state.clean_folder_result = None
+            st.error("The uploaded file is not a valid ZIP archive.")
+        except Exception as exc:
+            st.session_state.clean_folder_result = None
+            st.error(f"Folder cleaning failed: {exc}")
+
+    result = st.session_state.get("clean_folder_result")
+    if not result or result.get("source_filename") != uploaded_zip.name:
+        return
+
+    st.subheader("Cleaning Status")
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Input JSON Files", result["input_json_files"])
+        st.metric("Questions Cleaned", result["cleaned_questions"])
+    with col2:
+        st.metric("Cleaned JSON Files", result["cleaned_json_files"])
+        st.metric("Merged Outputs", len(result["merged_counts"]))
+    with col3:
+        st.metric("Invalid Years", len(result["invalid_years"]))
+        st.metric("Duplicate Fixes", len(result["duplicate_answers"]))
+
+    st.download_button(
+        "Download Cleaned ZIP",
+        data=result["archive_bytes"],
+        file_name=result["download_name"],
+        mime="application/zip",
+    )
+
+    st.subheader("Reports")
+    for report_name, report_text in result["reports"].items():
+        with st.expander(report_name, expanded=report_name == "processing_report.txt"):
+            st.code(report_text or "No entries.", language="text")
 
 
 def show_edit_json_page():
@@ -587,20 +729,10 @@ def show_edit_json_page():
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
 
-# Make sure to include the parse_options function if it's not already in your code
-def parse_options(options_text):
-    options_list = options_text.split('\n')[:5]  # Limit to 5 options
-    parsed_options = {}
-    for idx, opt in enumerate(options_list):
-        option_letter = chr(65 + idx)  # A, B, C, D, E
-        parsed_options[option_letter] = opt.strip()
-    return parsed_options
-
-# Update the main function to include the new page (if not already updated)
 def main():
     st.set_page_config(page_title="MEDQUEST Admin Tool", layout="wide")
 
-    page = st.sidebar.selectbox("Select a page", ["Create Exam", "Visualize Test", "Edit JSON"])
+    page = st.sidebar.selectbox("Select a page", ["Create Exam", "Visualize Test", "Edit JSON", "Clean Folder"])
 
     if page == "Create Exam":
         show_create_exam_page()
@@ -608,6 +740,8 @@ def main():
         show_visualize_test_page()
     elif page == "Edit JSON":
         show_edit_json_page()
+    elif page == "Clean Folder":
+        show_clean_folder_page()
 
 if __name__ == "__main__":
     main()
