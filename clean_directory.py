@@ -56,6 +56,24 @@ class MedicalDataCleaner:
             s = s[0].upper() + s[1:]
         return s
 
+    def read_json_file(self, file_path: Path):
+        raw = file_path.read_bytes()
+        attempted_encodings = []
+
+        for encoding in ("utf-8", "utf-8-sig", "cp1252", "latin-1"):
+            attempted_encodings.append(encoding)
+            try:
+                return json.loads(raw.decode(encoding))
+            except UnicodeDecodeError:
+                continue
+            except json.JSONDecodeError:
+                continue
+
+        tried = ", ".join(attempted_encodings)
+        raise ValueError(
+            f"Could not decode JSON file {file_path.name} using encodings: {tried}"
+        )
+
     def process_directory(
         self,
         root_dir: str | Path,
@@ -92,7 +110,7 @@ class MedicalDataCleaner:
             merged = None
 
             for file_path in files:
-                data = json.loads(file_path.read_text(encoding="utf-8"))
+                data = self.read_json_file(file_path)
                 if merged is None:
                     metadata = data.get("metadata", {}) or {}
                     year = str(metadata.get("exam_year", "")).strip()
